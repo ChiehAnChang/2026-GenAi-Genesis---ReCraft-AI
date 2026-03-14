@@ -1,0 +1,82 @@
+/* ============================================================
+   ReCraft AI — Global Styles
+   Imported via utils.load_css() in every page
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+/* Base */
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+/* ── Hero ── */
+.hero-title {
+    font-size: 3.2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #22c55e, #16a34a, #15803d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0;
+}
+
+.hero-sub {
+    font-size: 1.1rem;
+    color: #6b7280;
+    margin-top: 0.2rem;
+}
+
+/* ── Section header ── */
+.section-header {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #111827;
+    border-left: 4px solid #22c55e;
+    padding-left: 0.8rem;
+    margin: 1.5rem 0 1rem 0;
+}
+
+/* ── DIY step card ── */
+.step-card {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    margin: 0.4rem 0;
+    font-size: 0.95rem;
+}
+
+/* ── Marketplace card ── */
+.market-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 0.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s ease;
+}
+
+.market-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Price badge ── */
+.price-badge {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+    border-radius: 20px;
+    padding: 0.2rem 0.8rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: inline-block;
+}
+
+/* ── Footer ── */
+.footer {
+    color: #9ca3af;
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 2rem;
+}

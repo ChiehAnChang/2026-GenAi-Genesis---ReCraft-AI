@@ -93,9 +93,49 @@ elif st.session_state.ui_stage == "CONFIRM":
     
     # Let user select which item they want to work on first
     st.markdown("### 🔍 Analyzed Items")
-    st.write("Below are the items identified by AI. Select one to generate DIY plans.")
+    st.write("Below are the items identified by AI. You can plan for an individual item or combine them all!")
     
-    # Create list of labels
+    # ── Master Plan Area ──────────────────────────────────────────────────────
+    st.markdown("---")
+    master_col1, master_col2 = st.columns([2, 1])
+    with master_col1:
+        st.markdown("### ✨ The Master Plan (Combo)")
+        st.markdown(f"Combine all **{len(results)}** identified items into a single mega-project.")
+    with master_col2:
+        if st.button("🚀 Plan with ALL Items", type="primary", use_container_width=True):
+            # Aggregate all info
+            all_descriptions = []
+            all_dimensions = []
+            for i, res in enumerate(results):
+                # Retrieve dimensions from widgets using the keys we defined
+                l = st.session_state.get(f"dim_l_{i}", "0")
+                w = st.session_state.get(f"dim_w_{i}", "0")
+                h = st.session_state.get(f"dim_h_{i}", "0")
+                u = st.session_state.get(f"dim_unit_{i}", "cm")
+                
+                desc_text = st.session_state.get(f"desc_edit_{i}", res.get("description", ""))
+                all_descriptions.append(f"Item {i+1} ({res.get('material_name')}): {desc_text}")
+                all_dimensions.append(f"Item {i+1} Size: {l}x{w}x{h} {u}")
+            
+            combined_desc = " | ".join(all_descriptions)
+            combined_dims = " | ".join(all_dimensions)
+            
+            with st.spinner("🧠 Brainstorming a professional combo project using ALL materials…"):
+                try:
+                    resp = requests.post(
+                        f"{API_BASE}/api/generate-plans",
+                        json={"description": combined_desc, "dimensions": combined_dims},
+                        timeout=150
+                    )
+                    resp.raise_for_status()
+                    st.session_state.project_plans = resp.json()["plans"]
+                    st.session_state.ui_stage = "RESULTS"
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Combo generation failed: {e}")
+    st.markdown("---")
+    
+    # List of labels for individual selection
     labels = [f"Item {i+1}: {item.get('material_name', 'Unknown')}" for i, item in enumerate(results)]
     selected_idx = st.radio("Choose an item to plan:", range(len(labels)), format_func=lambda i: labels[i])
     st.session_state.selected_index = selected_idx

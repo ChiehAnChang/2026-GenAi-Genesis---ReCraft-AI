@@ -19,14 +19,14 @@ gpt_oss_client = OpenAI(
 )
 
 PLAN_GENERATOR_PROMPT = """You are a master upcycling designer.
-Material Description: {description}
-Dimensions: {dimensions}
+Material Description(s): {description}
+Dimension(s): {dimensions}
 
-Generate exactly THREE diverse, SIMPLE, and HIGHLY FEASIBLE upcycling DIY projects that strictly use ONLY the materials described above. 
-Do not suggest adding significant external materials (like new wood or metal). Focus on repurposing the EXACT item shown.
-If the item is broken, the project must be about fixing or repurposing its specific parts/shape.
-Ensure the construction steps are easy enough for a beginner to do at home with basic tools.
-Strictly incorporate the provided dimensions into the construction steps to ensure the project is realistic.
+Generate exactly THREE diverse, SIMPLE, and HIGHLY FEASIBLE upcycling DIY projects.
+IMPORTANT: If multiple items/materials are listed above, you MUST generate plans that COMBINE all those materials into a single functional project (e.g., using a wooden board and a plastic bucket to create a combined storage unit).
+Focus on repurposing the EXACT items shown. Do not suggest adding significant external materials.
+Ensure the construction steps are easy enough for a beginner and strictly incorporate the provided dimensions for all materials involved.
+Keep pricing EXTREMELY CONSERVATIVE.
 
 Respond with ONLY valid JSON (a list of 3 objects):
 [

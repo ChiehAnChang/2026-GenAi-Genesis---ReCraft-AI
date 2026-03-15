@@ -199,8 +199,38 @@ st.divider()
 # ── Past Ideas Section ────────────────────────────────────────────────────────
 token = st.session_state.get("auth_token")
 if token:
-    section("📦 My Profile")
-    if st.button("🔄 Load My Saved Designs", use_container_width=True):
-        st.info("Your past designs will appear here.")
+    section("📦 My Saved Designs")
+    if st.button("🔄 Refresh Saved Designs", use_container_width=False):
+        st.session_state.pop("saved_designs_cache", None)
+
+    if "saved_designs_cache" not in st.session_state:
+        try:
+            resp = requests.get(f"{API_BASE}/api/saves", params={"token": token}, timeout=5)
+            resp.raise_for_status()
+            st.session_state.saved_designs_cache = resp.json()
+        except Exception as e:
+            st.error(f"Could not load saved designs: {e}")
+            st.session_state.saved_designs_cache = []
+
+    saves = st.session_state.get("saved_designs_cache", [])
+    if not saves:
+        st.info("No saved designs yet — generate some plans above and hit 💾 Save!")
+    else:
+        for item in saves:
+            with st.expander(f"🛠️ **{item.get('project_name', 'Upcycled Item')}** — _{item.get('material', '')}_"):
+                c1, c2 = st.columns([1, 2])
+                with c1:
+                    if item.get("image_url"):
+                        st.image(item["image_url"], use_container_width=True)
+                    else:
+                        st.markdown("🖼️ *(no image)*")
+                with c2:
+                    st.markdown(f"*{item.get('tagline', '')}*")
+                    m1, m2 = st.columns(2)
+                    m1.metric("⏱️ Time", item.get("time_estimate", "—"))
+                    m2.metric("💪 Difficulty", item.get("difficulty", "—"))
+                    st.markdown("**Steps:**")
+                    for i, step in enumerate(item.get("steps", []), 1):
+                        step_card(i, step)
 
 footer()

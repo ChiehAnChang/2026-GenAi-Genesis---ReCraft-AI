@@ -28,10 +28,16 @@ from agents.image_agent import generate_product_image, edit_image_with_flux2
 
 try:
     import auth
+    from database import get_conn, init_db, seed_marketplace_if_empty
 except ImportError:
     from backend import auth
+    from backend.database import get_conn, init_db, seed_marketplace_if_empty
 
 app = FastAPI(title="ReCraft AI API", version="1.0.0")
+
+# ── Init DB on startup ────────────────────────────────────────────────────────
+init_db()
+seed_marketplace_if_empty()
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,24 +46,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ── Seeded synthetic data ─────────────────────────────────────────────────────
-def _seed_marketplace() -> List[Dict[str, Any]]:
-    return [
-        {
-            "id": "seed-1",
-            "project_name": "Bottle Cap Mosaic Frame",
-            "material": "Plastic bottle caps",
-            "tagline": "A colourful mosaic picture frame made from 60+ salvaged bottle caps",
-            "price": "$18 – $24",
-            "recommended_price_usd": 21,
-            "steps": ["Collect 60+ caps", "Arrange by colour", "Glue to cardboard frame", "Seal with varnish", "Add hanging hooks"],
-            "image_url": None,
-            "likes": 12,
-        }
-    ]
-
-_marketplace: List[Dict[str, Any]] = _seed_marketplace()
 
 # ── Models (Python 3.9 Compatible) ───────────────────────────────────────────
 class PriceRequest(BaseModel):
@@ -153,15 +141,43 @@ def get_price(request: PriceRequest) -> Dict[str, Any]:
 
 @app.post("/api/marketplace")
 def post_to_marketplace(item: MarketplaceItem):
-    new_item = item.dict()
-    new_item["id"] = f"mkt-{len(_marketplace) + 1}"
-    new_item["likes"] = 0
-    _marketplace.insert(0, new_item)
-    return {"status": "success", "id": new_item["id"]}
+    import json, uuid
+    new_id = str(uuid.uuid4())
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO marketplace
+               (id, project_name, material, tagline, price, recommended_price_usd, steps_json, image_url, likes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+            (new_id, item.project_name, item.material, item.tagline,
+             item.price, item.recommended_price_usd,
+             json.dumps(item.steps), item.image_url),
+        )
+    return {"status": "success", "id": new_id}
 
 @app.get("/api/marketplace")
 def get_marketplace():
-    return _marketplace
+    import json
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM marketplace ORDER BY likes DESC"
+        ).fetchall()
+    return [
+        {**dict(r), "steps": json.loads(r["steps_json"])}
+        for r in rows
+    ]
+
+@app.post("/api/marketplace/{item_id}/like")
+def like_item(item_id: str):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE marketplace SET likes = likes + 1 WHERE id = ?", (item_id,)
+        )
+        row = conn.execute(
+            "SELECT likes FROM marketplace WHERE id = ?", (item_id,)
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Item not found.")
+    return {"likes": row["likes"]}
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 @app.post("/api/auth/register")

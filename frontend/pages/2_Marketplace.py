@@ -71,7 +71,8 @@ if items:
             # Info
             st.markdown(f"**{item.get('project_name', 'Upcycled Item')}**")
             st.caption(item.get("tagline", ""))
-            price_badge(item.get("price", "Price TBD"))
+            usd = item.get("recommended_price_usd")
+            price_badge(f"${usd:.0f}" if usd else item.get("price", "Price TBD"))
 
             like_col, count_col = st.columns([1, 1])
             with like_col:
@@ -87,14 +88,12 @@ if items:
             with count_col:
                 st.markdown(f"<span style='line-height:2.2'>{item.get('likes', 0)} likes</span>", unsafe_allow_html=True)
 
-            # Preview first step
+            # All steps
             steps = item.get("steps", [])
             if steps:
-                with st.expander("👀 Preview steps"):
-                    for i, s in enumerate(steps[:3], 1):
+                with st.expander("👀 View all steps"):
+                    for i, s in enumerate(steps, 1):
                         st.markdown(f"{i}. {s}")
-                    if len(steps) > 3:
-                        st.caption(f"+ {len(steps) - 3} more steps…")
 
             st.markdown("---")
 else:

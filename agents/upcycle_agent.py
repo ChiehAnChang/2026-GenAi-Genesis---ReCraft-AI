@@ -63,12 +63,13 @@ def generate_top_3_plans(description: str, dimensions: str) -> list[dict]:
     raw = response.choices[0].message.content or ""
     return parse_json(raw)
 
-def generate_diy_plan(material_info: dict) -> dict:
+def generate_diy_plan(material_info: dict, dimensions: str = "Standard size") -> dict:
     """Legacy wrapper for backward compatibility."""
-    plans = generate_top_3_plans(
-        description=f"{material_info.get('material_name', 'item')} - {material_info.get('description', '')}",
-        dimensions="Standard size"
+    desc = (
+        f"{material_info.get('material', material_info.get('material_name', 'item'))} "
+        f"- {material_info.get('condition', material_info.get('description', ''))}"
     )
+    plans = generate_top_3_plans(description=desc, dimensions=dimensions)
     return plans[0] if plans else {}
 
 def run_pipeline(image_bytes: bytes) -> dict:

@@ -31,7 +31,7 @@ html, body, [class*="css"] {
 .section-header {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #111827;
+    color: #16a34a;
     border-left: 4px solid #22c55e;
     padding-left: 0.8rem;
     margin: 1.5rem 0 1rem 0;
@@ -45,6 +45,7 @@ html, body, [class*="css"] {
     padding: 1rem 1.2rem;
     margin: 0.4rem 0;
     font-size: 0.95rem;
+    color: #111827;
 }
 
 /* ── Marketplace card ── */

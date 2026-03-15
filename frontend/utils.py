@@ -8,7 +8,7 @@ _CSS_PATH = os.path.join(os.path.dirname(__file__), "styles.css")
 
 def load_css() -> None:
     """Inject styles.css into the current Streamlit page."""
-    with open(_CSS_PATH) as f:
+    with open(_CSS_PATH, encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 

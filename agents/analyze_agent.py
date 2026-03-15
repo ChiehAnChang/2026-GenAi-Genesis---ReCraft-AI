@@ -3,6 +3,7 @@ Analyze Agent — Step 1: Identifies the material and condition from an image.
 Uses Qwen-VL via Hugging Face.
 """
 
+from __future__ import annotations
 import os
 import base64
 from openai import OpenAI

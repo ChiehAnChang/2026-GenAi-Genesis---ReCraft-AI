@@ -1,6 +1,8 @@
 """
-Page 1 — DIY Studio
-Upload waste photo → AI identifies material → 5-step DIY plan → price estimate → publish
+Page 1 — DIY Studio (Refactored for Multi-Stage Workflow)
+1. Upload & Analysis
+2. Confirmation & Dimensions
+3. Top 3 Results with Pricing & Images
 """
 
 import os
@@ -14,296 +16,159 @@ from utils import load_css, section, step_card, price_badge, footer
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-
 load_css()
 
-# ── Session state ─────────────────────────────────────────────────────────────
+# ── Session State Initialization ──────────────────────────────────────────────
+if "ui_stage" not in st.session_state:
+    st.session_state.ui_stage = "UPLOAD"  # UPLOAD -> CONFIRM -> RESULTS
+
 for key, default in [
-    ("upcycle_result", None),
-    ("id_result", None),
-    ("price_result", None),
+    ("analysis_result", None),
+    ("confirmed_description", ""),
+    ("project_plans", []),
     ("uploaded_image_bytes", None),
-    ("confirmed_material", ""),
-    ("confirmed_condition", ""),
-    ("confirmed_dimensions", ""),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown('<h1 class="hero-title">🛠️ DIY Studio</h1>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">Upload any household waste → get an AI-generated upcycling plan + market price estimate</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Step-by-step upcycling: From analysis to 3 perfect plans</p>', unsafe_allow_html=True)
 st.divider()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SECTION 1 — UPLOAD & ANALYSE
-# ─────────────────────────────────────────────────────────────────────────────
-section("📸 Upload & Analyse")
-
-upload_col, result_col = st.columns([1, 1], gap="large")
-
-with upload_col:
+# ── STAGE 1: UPLOAD ───────────────────────────────────────────────────────────
+if st.session_state.ui_stage == "UPLOAD":
+    section("📸 1. Upload & Identify")
     uploaded_file = st.file_uploader(
         "Drop an image of your waste material",
         type=["jpg", "jpeg", "png", "webp"],
-        label_visibility="collapsed",
     )
 
     if uploaded_file:
         img_bytes = uploaded_file.read()
         st.session_state.uploaded_image_bytes = img_bytes
-        st.image(img_bytes, caption="📷 Uploaded material", use_container_width=True)
+        st.image(img_bytes, caption="📷 Material Preview", use_container_width=True)
 
-        if st.button("🔍 Step 1: Identify Material", type="primary", use_container_width=True):
-            with st.spinner("🤖 Identifying material…"):
+        if st.button("🔍 Start AI Analysis", type="primary", use_container_width=True):
+            with st.spinner("🤖 Qwen is analyzing your material…"):
                 try:
                     resp = requests.post(
-                        f"{API_BASE}/api/identify",
+                        f"{API_BASE}/api/analyze",
                         files={"file": (uploaded_file.name, img_bytes, uploaded_file.type)},
                         timeout=60,
                     )
                     resp.raise_for_status()
-                    st.session_state.id_result = resp.json()
-                    # Pre-fill confirmations
-                    st.session_state.confirmed_material = st.session_state.id_result.get("material", "")
-                    st.session_state.confirmed_condition = st.session_state.id_result.get("condition", "")
-                    st.session_state.upcycle_result = None  # Reset plan if material changes
+                    st.session_state.analysis_result = resp.json()
+                    st.session_state.confirmed_description = st.session_state.analysis_result["description"]
+                    st.session_state.ui_stage = "CONFIRM"
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Error: {e}")
+                    st.error(f"❌ Analysis failed: {e}")
 
-with result_col:
-    # ── Phase 1: Confirmation & Refinement ──
-    if st.session_state.id_result and not st.session_state.upcycle_result:
-        st.markdown("### 📝 Confirm & Refine")
-        st.info("AI identified the material. You can refine the description and add sizes below.")
-        
-        st.session_state.confirmed_material = st.text_input(
-            "Material Description", 
-            value=st.session_state.confirmed_material
-        )
-        st.session_state.confirmed_condition = st.text_input(
-            "Condition", 
-            value=st.session_state.confirmed_condition
-        )
-        st.session_state.confirmed_dimensions = st.text_input(
-            "Dimensions (e.g. 4 inch length, 2 inch width)", 
-            placeholder="Help AI by providing specific sizes...",
-            value=st.session_state.confirmed_dimensions
-        )
-
-        if st.button("✨ Step 2: Generate DIY Plan", type="primary", use_container_width=True):
-            with st.spinner("🚀 Designing your upcycling project…"):
-                try:
-                    # Prepare payload
-                    payload = {
-                        "material": st.session_state.confirmed_material,
-                        "condition": st.session_state.confirmed_condition,
-                        "dimensions": st.session_state.confirmed_dimensions or "Standard size",
-                        "original_image_b64": st.session_state.id_result.get("original_image_b64")
-                    }
-                    resp = requests.post(
-                        f"{API_BASE}/api/generate_diy",
-                        json=payload,
-                        timeout=120,
-                    )
-                    resp.raise_for_status()
-                    st.session_state.upcycle_result = resp.json()
-                    st.session_state.price_result = None
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Generation error: {e}")
-
-    # ── Phase 2: Show Result ──
-    res = st.session_state.upcycle_result
-    if res:
-        st.success(f"✅ Ready: **{res.get('project_name', 'Unnamed Project')}**")
-        
-        # Display material info used
-        st.markdown(f"**Material:** {res.get('material')} | **Sizes:** {res.get('dimensions')}")
-
-        # Image tabs: AI Vision vs Original
-        if res.get("image_url"):
-            tab_ai, tab_orig = st.tabs(["🖼️ AI Vision", "📷 Original Photo"])
-            with tab_ai:
-                st.image(res["image_url"], caption="Flux-1 AI Visualisation", use_container_width=True)
-            with tab_orig:
-                if st.session_state.uploaded_image_bytes:
-                    st.image(st.session_state.uploaded_image_bytes, use_container_width=True)
-        elif res.get("edited_image_url"):
-            st.image(res["edited_image_url"], caption="🎨 AI-Edited Vision", use_container_width=True)
-
-        st.markdown(f"### 🛠️ {res.get('project_name', 'Your Upcycled Project')}")
-        st.caption(res.get("tagline", ""))
-
-        m1, m2 = st.columns(2)
-        m1.metric("⏱️ Time", res.get("time_estimate", "—"))
-        m2.metric("💪 Difficulty", res.get("difficulty", "—"))
-
-        st.markdown("**Step-by-step instructions:**")
-        for i, step in enumerate(res.get("steps", []), 1):
-            step_card(i, step)
-
-        if res.get("sustainability_impact"):
-            st.info(f"🌱 {res['sustainability_impact']}")
-
-        if res.get("materials_needed"):
-            st.markdown("**Additional materials needed:**")
-            for mat in res["materials_needed"]:
-                st.markdown(f"- {mat}")
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SECTION 2 — PRICE ESTIMATE
-# ─────────────────────────────────────────────────────────────────────────────
-if st.session_state.upcycle_result:
-    section("💰 Market Price Estimate")
-
-    price_col, slider_col = st.columns([2, 1], gap="large")
-
-    res = st.session_state.upcycle_result
-
-    with slider_col:
-        # Parse default labor hours from time_estimate string
-        try:
-            default_hours = float(res.get("time_estimate", "2 hours").split()[0])
-        except (ValueError, IndexError):
-            default_hours = 2.0
-
-        labor_hours = st.slider(
-            "⏱️ Your estimated labor hours",
-            min_value=0.5,
-            max_value=12.0,
-            value=default_hours,
-            step=0.5,
-        )
-
-        if st.button("💡 Get Price Estimate", type="primary", use_container_width=True):
-            with st.spinner("📊 Analysing market trends…"):
-                try:
-                    resp = requests.post(
-                        f"{API_BASE}/api/price",
-                        json={"upcycle_result": res, "labor_hours": labor_hours},
-                        timeout=30,
-                    )
-                    resp.raise_for_status()
-                    st.session_state.price_result = resp.json()
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Pricing error: {e}")
-
-    with price_col:
-        pr = st.session_state.price_result
-        if pr:
-            p1, p2, p3 = st.columns(3)
-            p1.metric("💰 Recommended", f"${pr.get('recommended_price_usd', 0):.2f}")
-            p2.metric("📉 Low", f"${pr.get('price_range_low_usd', 0):.2f}")
-            p3.metric("📈 High", f"${pr.get('price_range_high_usd', 0):.2f}")
-            st.caption(f"💬 {pr.get('justification', '')}")
-
-            with st.expander("📊 Full Price Breakdown"):
-                for label, val in {
-                    "Materials Cost": f"${pr.get('materials_cost_usd', 0):.2f}",
-                    "Labor Cost": f"${pr.get('labor_cost_usd', 0):.2f}",
-                    "Platform Fee": f"${pr.get('platform_fee_usd', 0):.2f}",
-                    "Labor Hours": pr.get("labor_hours", "-"),
-                    "Hourly Rate": f"${pr.get('suggested_hourly_rate_usd', 0):.2f}",
-                }.items():
-                    st.markdown(f"- **{label}:** {val}")
-
-
-
-    # ── Save + Publish ─────────────────────────────────────────────────────────
-    st.divider()
-
-    pr = st.session_state.price_result
-    price_str = (
-        f"${pr['price_range_low_usd']:.0f} – ${pr['price_range_high_usd']:.0f}"
-        if pr else "Price TBD"
-    )
-
-    action_col1, action_col2 = st.columns(2)
-
-    # Save to account (only if logged in)
-    token = st.session_state.get("auth_token")
-    with action_col1:
-        if token:
-            if st.button("💾 Save to My Account", type="primary", use_container_width=True):
-                try:
-                    save_payload = {
-                        **res,
-                        "price": price_str,
-                        "recommended_price_usd": pr["recommended_price_usd"] if pr else 0,
-                    }
-                    save_resp = requests.post(
-                        f"{API_BASE}/api/saves",
-                        json={"token": token, "item": save_payload},
-                        timeout=10,
-                    )
-                    save_resp.raise_for_status()
-                    st.success("✅ Saved to your profile!")
-                except Exception as e:
-                    st.error(f"❌ Could not save: {e}")
-        else:
-            st.page_link("pages/0_Login.py", label="🔑 Log in to Save", icon="🔑")
-
-    with action_col2:
-        if st.button("🌍 Publish to Marketplace", type="secondary", use_container_width=True):
-            try:
-                payload = {
-                    "project_name": res.get("project_name", "Upcycled Item"),
-                    "material": res.get("material", ""),
-                    "tagline": res.get("tagline", ""),
-                    "price": price_str,
-                    "recommended_price_usd": pr["recommended_price_usd"] if pr else 0,
-                    "steps": res.get("steps", []),
-                    "image_url": res.get("image_url"),
-                }
-                resp = requests.post(f"{API_BASE}/api/marketplace", json=payload, timeout=10)
-                resp.raise_for_status()
-                st.success("🎉 Published to the Community Marketplace!")
-                st.balloons()
-            except Exception as e:
-                st.error(f"❌ Could not publish: {e}")
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SECTION 3 — PAST IDEAS
-# ─────────────────────────────────────────────────────────────────────────────
-st.divider()
-token = st.session_state.get("auth_token")
-
-if token:
-    section("📦 Past Ideas")
-    st.markdown("Here are the DIY plans you've generated and saved.")
+# ── STAGE 2: CONFIRM & DIMENSIONS ─────────────────────────────────────────────
+elif st.session_state.ui_stage == "CONFIRM":
+    section("📝 2. Confirm Description & Size")
     
-    # Use a button to avoid loading this on every render unless asked
-    if st.button("🔄 Fetch My Past Ideas", use_container_width=True):
-        with st.spinner("Fetching your saved ideas..."):
-            try:
-                saves_resp = requests.get(f"{API_BASE}/api/saves", params={"token": token}, timeout=10)
-                saves_resp.raise_for_status()
-                saves_data = saves_resp.json()
-                
-                if not saves_data:
-                    st.info("You haven't saved any DIY ideas yet. Start analyzing wastes above!")
+    col1, col2 = st.columns([1, 1], gap="large")
+    
+    with col1:
+        if st.session_state.uploaded_image_bytes:
+            st.image(st.session_state.uploaded_image_bytes, use_container_width=True)
+    
+    with col2:
+        st.info(f"🤖 AI identified: **{st.session_state.analysis_result.get('material_name')}**")
+        
+        # Confirmation / Edit area
+        desc = st.text_area(
+            "How would you describe this item?",
+            value=st.session_state.confirmed_description,
+            help="You can edit this if the AI missed anything.",
+            height=100
+        )
+        
+        st.markdown("### 📏 Dimensions")
+        dims = st.text_input("Length x Height x Width (e.g. 50x30x10 cm)", placeholder="e.g. 30cm tall, 10cm wide")
+        
+        ccol1, ccol2 = st.columns(2)
+        if ccol1.button("⬅️ Back", use_container_width=True):
+            st.session_state.ui_stage = "UPLOAD"
+            st.rerun()
+            
+        if ccol2.button("✨ Generate 3 Plans", type="primary", use_container_width=True):
+            if not dims:
+                st.warning("Please enter approximate dimensions first!")
+            else:
+                st.session_state.confirmed_description = desc
+                with st.spinner("🧠 gpt-oss is dreaming of 3 amazing plans…"):
+                    try:
+                        resp = requests.post(
+                            f"{API_BASE}/api/generate-plans",
+                            json={"description": desc, "dimensions": dims},
+                            timeout=120
+                        )
+                        resp.raise_for_status()
+                        st.session_state.project_plans = resp.json()["plans"]
+                        st.session_state.ui_stage = "RESULTS"
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Plan generation failed: {e}")
+
+# ── STAGE 3: RESULTS ──────────────────────────────────────────────────────────
+elif st.session_state.ui_stage == "RESULTS":
+    section("🌟 3 Upcycling Masterpieces")
+    
+    if st.button("🔄 Start Over", use_container_width=False):
+        st.session_state.ui_stage = "UPLOAD"
+        st.session_state.project_plans = []
+        st.rerun()
+
+    plans = st.session_state.project_plans
+    
+    # Display 3 separate columns/sections for the plans
+    for idx, plan in enumerate(plans):
+        with st.container(border=True):
+            pcol1, pcol2 = st.columns([2, 3], gap="medium")
+            
+            with pcol1:
+                # Preview image
+                if plan.get("image_url"):
+                    st.image(plan["image_url"], caption=f"Result Preview: {plan['project_name']}", use_container_width=True)
                 else:
-                    for s in saves_data:
-                        with st.expander(f"🛠️ {s.get('project_name', 'Unnamed Project')} — {s.get('price', 'TBD')}"):
-                            col1, col2 = st.columns([1, 2])
-                            with col1:
-                                if s.get("image_url"):
-                                    st.image(s.get("image_url"), use_container_width=True)
-                                elif s.get("edited_image_url"):
-                                    st.image(s.get("edited_image_url"), use_container_width=True)
-                            with col2:
-                                st.markdown(f"**Material:** {s.get('material', 'Unknown')}")
-                                st.caption(s.get("tagline", ""))
-                                st.markdown("**Steps:**")
-                                for i, step in enumerate(s.get("steps", []), 1):
-                                    st.markdown(f"{i}. {step}")
-            except Exception as e:
-                st.error(f"❌ Could not fetch saved ideas: {e}")
-else:
-    st.info("Log in to see your past ideas.")
+                    st.warning("🎨 No preview image generated.")
+                
+                # Pricing info
+                pr = plan.get("price_estimate")
+                if pr:
+                    st.divider()
+                    st.metric("💰 Value Estimate", f"${pr.get('recommended_price_usd', 0):.2f}")
+                    st.caption(f"Reasoning: {pr.get('justification')}")
+            
+            with pcol2:
+                st.markdown(f"## {idx+1}. {plan['project_name']}")
+                st.markdown(f"*{plan['tagline']}*")
+                
+                m1, m2 = st.columns(2)
+                m1.metric("⏱️ Time", plan.get("time_estimate", "—"))
+                m2.metric("💪 Difficulty", plan.get("difficulty", "—"))
+                
+                with st.expander("🛠️ View Instructions"):
+                    st.markdown("**Materials needed:**")
+                    for m in plan.get("materials_needed", []):
+                        st.markdown(f"- {m}")
+                    
+                    st.markdown("**Steps:**")
+                    for i, step in enumerate(plan.get("steps", []), 1):
+                        step_card(i, step)
+                    
+                    st.info(f"🌱 {plan.get('sustainability_impact')}")
+
+st.divider()
+
+# ── Past Ideas Section ────────────────────────────────────────────────────────
+token = st.session_state.get("auth_token")
+if token:
+    section("📦 My Profile")
+    if st.button("🔄 Load My Saved Designs", use_container_width=True):
+        st.info("Your past designs will appear here.")
 
 footer()
-

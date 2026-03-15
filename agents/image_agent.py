@@ -4,6 +4,8 @@ of the finished upcycled product based on the AI-generated prompt.
 Falls back gracefully if Flux is unavailable.
 """
 
+from __future__ import annotations
+
 import os
 import time
 import httpx

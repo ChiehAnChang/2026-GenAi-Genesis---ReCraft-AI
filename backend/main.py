@@ -3,10 +3,13 @@ FastAPI backend for ReCraft AI.
 Handles: upcycling pipeline, pricing agent, and community marketplace.
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import base64
-from typing import Any
+import traceback
+from typing import Any, Optional
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Ensure agents/ is importable regardless of working directory ──────────────
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from agents.upcycle_agent import run_pipeline
 from agents.pricing_agent import estimate_price
 from agents.image_agent import generate_product_image, edit_image_with_flux2
@@ -95,7 +98,7 @@ _marketplace: list[dict] = _seed_marketplace()
 # ─────────────────────────────────────────────────────────────────────────────
 class PriceRequest(BaseModel):
     upcycle_result: dict
-    labor_hours: float | None = None
+    labor_hours: Optional[float] = None
 
 
 class MarketplaceItem(BaseModel):
@@ -105,7 +108,7 @@ class MarketplaceItem(BaseModel):
     price: str
     recommended_price_usd: float
     steps: list[str]
-    image_url: str | None = None
+    image_url: Optional[str] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -117,7 +120,7 @@ def health():
 
 
 @app.post("/api/upcycle")
-async def upcycle(file: UploadFile = File(...)) -> dict[str, Any]:
+def upcycle(file: UploadFile = File(...)) -> dict[str, Any]:
     """
     UC1: Accept image upload → run Gemini multimodal pipeline →
     return material identification + DIY plan + Flux-1 image URL.
@@ -125,11 +128,12 @@ async def upcycle(file: UploadFile = File(...)) -> dict[str, Any]:
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
         raise HTTPException(status_code=400, detail="Only JPG/PNG/WEBP images accepted.")
 
-    image_bytes = await file.read()
+    image_bytes = file.file.read()
 
     try:
         result = run_pipeline(image_bytes)
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"AI pipeline error: {str(e)}")
 
     # Medium tier: generate Flux-1 photorealistic image

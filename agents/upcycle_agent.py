@@ -1,17 +1,26 @@
 """
-Upcycle Agent — Railtracks-style pipeline using Google Gemini multimodal.
-Identifies waste material from an image and generates a DIY upcycling plan.
+Upcycle Agent — Two-model pipeline:
+  Step 1 (identify_material): Google Gemini 2.0 Flash — multimodal vision (new SDK)
+  Step 2 (generate_diy_plan): gpt-oss-120b via HuggingFace vLLM endpoint
 """
 
 import os
-import base64
 import json
 import re
-import google.genai as genai
-from google.genai import types
+import base64
+from openai import OpenAI
 from PIL import Image
 import io
 
+# gpt-oss client for DIY plan generation
+GPT_OSS_BASE_URL = os.getenv(
+    "GPT_OSS_BASE_URL",
+    "https://vjioo4r1vyvcozuj.us-east-2.aws.endpoints.huggingface.cloud/v1",
+)
+gpt_oss_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY", "test"),
+    base_url=GPT_OSS_BASE_URL,
+)
 
 IDENTIFY_PROMPT = """You are an expert material scientist and sustainability consultant.
 Analyze the uploaded image and identify:
@@ -54,40 +63,62 @@ def _parse_json(text: str) -> dict:
 
 
 def identify_material(image_bytes: bytes) -> dict:
-    """Step 1: Send image to Gemini Vision to identify the waste material."""
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    image = Image.open(io.BytesIO(image_bytes))
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[IDENTIFY_PROMPT, image],
+    """Step 1: Send image to Qwen-VL via Hugging Face to identify the waste material."""
+    hf_client = OpenAI(
+        api_key=os.getenv("HUGGINGFACE_API_KEY", ""),
+        base_url="https://router.huggingface.co/v1"
     )
-    return _parse_json(response.text)
+    
+    # Convert image to base64 for the OpenAI-compatible vision payload
+    base64_image = base64.b64encode(image_bytes).decode('utf-8')
+    image_url = f"data:image/jpeg;base64,{base64_image}"
+
+    response = hf_client.chat.completions.create(
+        model="Qwen/Qwen2.5-VL-72B-Instruct",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": IDENTIFY_PROMPT},
+                    {"type": "image_url", "image_url": {"url": image_url}}
+                ]
+            }
+        ],
+        max_tokens=500,
+        temperature=0.1
+    )
+    
+    raw = response.choices[0].message.content or ""
+    return _parse_json(raw)
 
 
 def generate_diy_plan(material_info: dict) -> dict:
-    """Step 2: Generate a 5-step DIY upcycling plan from identified material."""
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    
+    """Step 2: Generate a 5-step DIY upcycling plan using gpt-oss-120b."""
     prompt = DIY_PROMPT.format(
         material=material_info["material"],
         condition=material_info.get("condition", "good condition"),
     )
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=[prompt],
+    response = gpt_oss_client.chat.completions.create(
+        model="openai/gpt-oss-120b",
+        messages=[
+            {"role": "system", "content": "You are a creative upcycling expert. Always respond with valid JSON only, no markdown."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.8,
+        max_tokens=1024,  # gpt-oss needs room for chain-of-thought reasoning
     )
-    return _parse_json(response.text)
+    raw = response.choices[0].message.content or ""
+    return _parse_json(raw)
 
 
 def run_pipeline(image_bytes: bytes) -> dict:
     """
     Full Upcycle Pipeline:
-    image → identify material → generate DIY plan → return combined result
+    image → identify material (Gemini Vision) → generate DIY plan (gpt-oss) → return combined result
     """
     material_info = identify_material(image_bytes)
     diy_plan = generate_diy_plan(material_info)
-    
+
     return {
         "material": material_info["material"],
         "condition": material_info.get("condition", ""),

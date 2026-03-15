@@ -1,13 +1,20 @@
 """
-Pricing Agent — uses OpenAI GPT to output a structured JSON price estimate
-for the upcycled product, grounded in real market reasoning.
+Pricing Agent — uses gpt-oss-120b (via HuggingFace vLLM endpoint) to output
+a structured JSON price estimate for the upcycled product, grounded in
+real market reasoning.
 """
+
+from __future__ import annotations
 
 import os
 import json
 import re
 from openai import OpenAI
 
+GPT_OSS_BASE_URL = os.getenv(
+    "GPT_OSS_BASE_URL",
+    "https://vjioo4r1vyvcozuj.us-east-2.aws.endpoints.huggingface.cloud/v1",
+)
 
 PRICING_SYSTEM_PROMPT = """You are an expert market analyst specializing in sustainable goods,
 upcycled crafts, and the circular economy. You analyze DIY upcycled products and provide
@@ -51,7 +58,7 @@ def _parse_json(text: str) -> dict:
 
 def estimate_price(upcycle_result: dict, labor_hours_override: float | None = None) -> dict:
     """
-    Calls OpenAI GPT to estimate a realistic resale price for the upcycled product.
+    Calls gpt-oss-120b to estimate a realistic resale price for the upcycled product.
     Optionally overrides labor hours for the advanced slider feature.
     """
     prompt = PRICING_PROMPT.format(
@@ -62,19 +69,23 @@ def estimate_price(upcycle_result: dict, labor_hours_override: float | None = No
         time_estimate=upcycle_result.get("time_estimate", "2 hours"),
     )
 
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client = OpenAI(
+        api_key=os.getenv("OPENAI_API_KEY", "test"),
+        base_url=GPT_OSS_BASE_URL,
+    )
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": PRICING_SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ],
         temperature=0.3,  # Low temp for consistent pricing
-        response_format={"type": "json_object"},
+        max_tokens=1024,  # gpt-oss needs room for chain-of-thought reasoning
     )
-    
-    result = json.loads(response.choices[0].message.content)
-    
+
+    raw = response.choices[0].message.content or ""
+    result = _parse_json(raw)
+
     # Apply labor hours override if provided (for the slider feature)
     if labor_hours_override is not None:
         rate = result.get("suggested_hourly_rate_usd", 12)
@@ -84,5 +95,5 @@ def estimate_price(upcycle_result: dict, labor_hours_override: float | None = No
         result["price_range_low_usd"] = round(base * 1.1, 2)
         result["price_range_high_usd"] = round(base * 1.4, 2)
         result["recommended_price_usd"] = round(base * 1.25, 2)
-    
+
     return result

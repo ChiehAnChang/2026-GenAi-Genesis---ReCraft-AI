@@ -3,6 +3,8 @@ Auth module — in-memory user store for hackathon.
 Production would swap this for a real DB + proper JWT.
 """
 
+from __future__ import annotations
+
 import uuid
 import hashlib
 import os

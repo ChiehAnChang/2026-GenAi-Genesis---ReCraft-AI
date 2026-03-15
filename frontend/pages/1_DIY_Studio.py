@@ -20,8 +20,12 @@ load_css()
 # ── Session state ─────────────────────────────────────────────────────────────
 for key, default in [
     ("upcycle_result", None),
+    ("id_result", None),
     ("price_result", None),
     ("uploaded_image_bytes", None),
+    ("confirmed_material", ""),
+    ("confirmed_condition", ""),
+    ("confirmed_dimensions", ""),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -50,27 +54,73 @@ with upload_col:
         st.session_state.uploaded_image_bytes = img_bytes
         st.image(img_bytes, caption="📷 Uploaded material", use_container_width=True)
 
-        if st.button("🔍 Analyse & Generate Ideas", type="primary", use_container_width=True):
-            with st.spinner("🤖 ReCraft AI is thinking…"):
+        if st.button("🔍 Step 1: Identify Material", type="primary", use_container_width=True):
+            with st.spinner("🤖 Identifying material…"):
                 try:
                     resp = requests.post(
-                        f"{API_BASE}/api/upcycle",
+                        f"{API_BASE}/api/identify",
                         files={"file": (uploaded_file.name, img_bytes, uploaded_file.type)},
+                        timeout=60,
+                    )
+                    resp.raise_for_status()
+                    st.session_state.id_result = resp.json()
+                    # Pre-fill confirmations
+                    st.session_state.confirmed_material = st.session_state.id_result.get("material", "")
+                    st.session_state.confirmed_condition = st.session_state.id_result.get("condition", "")
+                    st.session_state.upcycle_result = None  # Reset plan if material changes
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error: {e}")
+
+with result_col:
+    # ── Phase 1: Confirmation & Refinement ──
+    if st.session_state.id_result and not st.session_state.upcycle_result:
+        st.markdown("### 📝 Confirm & Refine")
+        st.info("AI identified the material. You can refine the description and add sizes below.")
+        
+        st.session_state.confirmed_material = st.text_input(
+            "Material Description", 
+            value=st.session_state.confirmed_material
+        )
+        st.session_state.confirmed_condition = st.text_input(
+            "Condition", 
+            value=st.session_state.confirmed_condition
+        )
+        st.session_state.confirmed_dimensions = st.text_input(
+            "Dimensions (e.g. 4 inch length, 2 inch width)", 
+            placeholder="Help AI by providing specific sizes...",
+            value=st.session_state.confirmed_dimensions
+        )
+
+        if st.button("✨ Step 2: Generate DIY Plan", type="primary", use_container_width=True):
+            with st.spinner("🚀 Designing your upcycling project…"):
+                try:
+                    # Prepare payload
+                    payload = {
+                        "material": st.session_state.confirmed_material,
+                        "condition": st.session_state.confirmed_condition,
+                        "dimensions": st.session_state.confirmed_dimensions or "Standard size",
+                        "original_image_b64": st.session_state.id_result.get("original_image_b64")
+                    }
+                    resp = requests.post(
+                        f"{API_BASE}/api/generate_diy",
+                        json=payload,
                         timeout=120,
                     )
                     resp.raise_for_status()
                     st.session_state.upcycle_result = resp.json()
                     st.session_state.price_result = None
                     st.rerun()
-                except requests.exceptions.ConnectionError:
-                    st.error("❌ Cannot reach the API. Is the backend running?")
                 except Exception as e:
-                    st.error(f"❌ Error: {e}")
+                    st.error(f"❌ Generation error: {e}")
 
-with result_col:
+    # ── Phase 2: Show Result ──
     res = st.session_state.upcycle_result
     if res:
-        st.success(f"✅ Identified: **{res.get('material', 'Unknown material')}**")
+        st.success(f"✅ Ready: **{res.get('project_name', 'Unnamed Project')}**")
+        
+        # Display material info used
+        st.markdown(f"**Material:** {res.get('material')} | **Sizes:** {res.get('dimensions')}")
 
         # Image tabs: AI Vision vs Original
         if res.get("image_url"):

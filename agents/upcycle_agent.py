@@ -36,6 +36,7 @@ Respond with ONLY valid JSON, no markdown fences:
 
 DIY_PROMPT = """You are a creative upcycling expert and sustainability educator.
 Given this waste material: {material} ({condition})
+Dimensions: {dimensions}
 
 Generate ONE brilliant upcycling DIY project. Respond with ONLY valid JSON, no markdown fences:
 {{
@@ -92,11 +93,12 @@ def identify_material(image_bytes: bytes) -> dict:
     return _parse_json(raw)
 
 
-def generate_diy_plan(material_info: dict) -> dict:
+def generate_diy_plan(material_info: dict, dimensions: str = "Standard size") -> dict:
     """Step 2: Generate a 5-step DIY upcycling plan using gpt-oss-120b."""
     prompt = DIY_PROMPT.format(
         material=material_info["material"],
         condition=material_info.get("condition", "good condition"),
+        dimensions=dimensions
     )
     response = gpt_oss_client.chat.completions.create(
         model="openai/gpt-oss-120b",

@@ -51,6 +51,7 @@ pg = st.navigation(
         ],
         "Community": [
             st.Page("pages/2_Marketplace.py", title="Marketplace", icon="🛍️"),
+            st.Page("pages/4_Community.py", title="Community Chat", icon="💬"),
         ],
     }
 )

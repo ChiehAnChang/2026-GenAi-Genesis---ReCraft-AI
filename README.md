@@ -12,10 +12,10 @@ Over **2 billion tonnes of waste** are generated globally each year, with less t
 ## ✨ What It Does
 
 1. **Upload** a photo of any household waste (plastic bottle, cardboard box, glass jar…)
-2. **AI identifies** the material using Google Gemini 2.0 multimodal vision
-3. **Generates** a 5-step DIY upcycling project tailored to that material
+2. **AI identifies** the material using Qwen2.5-VL multimodal vision (via HuggingFace)
+3. **Generates** a 5-step DIY upcycling project tailored to that material using gpt-oss-120b
 4. **Visualises** the finished product using Flux-1 photorealistic image generation
-5. **Estimates** the resale price with an OpenAI GPT pricing agent (structured JSON)
+5. **Estimates** the resale price with a gpt-oss-120b pricing agent (structured JSON)
 6. **Publishes** the creation to a shared Community Marketplace wall
 
 ## 🛠️ Technology Stack
@@ -26,17 +26,18 @@ Over **2 billion tonnes of waste** are generated globally each year, with less t
 | Backend | FastAPI (Python) |
 | Hosting | Replit |
 | AI Orchestration | Custom pipeline (Railtracks-inspired) |
-| Material ID | Google Gemini 2.0 Flash (multimodal) |
+| Material ID | Qwen2.5-VL-72B-Instruct (HuggingFace) |
+| DIY Generation | gpt-oss-120b (HuggingFace vLLM) |
 | Image Generation | Flux-1 Pro (Black Forest Labs) |
 | Image Editing | Flux-2 Kontext Pro |
-| Pricing Agent | OpenAI GPT-4o-mini |
+| Pricing Agent | gpt-oss-120b (HuggingFace vLLM) |
 | Language | Python 3.11 |
 
 ## 🚀 Setup Instructions
 
 ### Prerequisites
 - Python 3.11+
-- API keys: Google Gemini, OpenAI, Flux (Black Forest Labs)
+- API keys: HuggingFace, Flux (Black Forest Labs) — OpenAI key optional (only needed if using OpenAI directly)
 
 ### Local Development
 
@@ -67,9 +68,9 @@ Open [http://localhost:8501](http://localhost:8501)
 
 1. Import this repo into Replit
 2. Add secrets in **Replit Secrets** (Tools → Secrets):
-   - `GEMINI_API_KEY`
-   - `OPENAI_API_KEY`
+   - `HUGGINGFACE_API_KEY`
    - `FLUX_API_KEY`
+   - `GPT_OSS_BASE_URL`
 3. Click **Run** — FastAPI starts automatically via `.replit` config
 4. Deploy Streamlit separately (Streamlit Community Cloud) pointing `API_BASE_URL` to your Replit URL
 
@@ -77,8 +78,8 @@ Open [http://localhost:8501](http://localhost:8501)
 
 | Variable | Description | Where to get |
 |----------|-------------|-------------|
-| `GEMINI_API_KEY` | Google Gemini API key | [Google AI Studio](https://aistudio.google.com) |
-| `OPENAI_API_KEY` | OpenAI API key | [platform.openai.com](https://platform.openai.com) |
+| `HUGGINGFACE_API_KEY` | HuggingFace API key (for Qwen-VL + gpt-oss) | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) |
+| `GPT_OSS_BASE_URL` | HuggingFace vLLM endpoint for gpt-oss-120b | Your HuggingFace Inference Endpoint URL |
 | `FLUX_API_KEY` | Flux image generation key | [api.bfl.ml](https://api.bfl.ml) |
 | `FLUX_API_URL` | Flux base URL (default set) | `https://api.bfl.ml/v1` |
 | `API_BASE_URL` | FastAPI backend URL | Your Replit URL |
@@ -92,8 +93,8 @@ recraft-ai/
 ├── backend/
 │   └── main.py                 # FastAPI routes + CORS + marketplace state
 ├── agents/
-│   ├── upcycle_agent.py        # Gemini multimodal: identify + DIY pipeline
-│   ├── pricing_agent.py        # GPT-4o-mini: structured JSON price estimate
+│   ├── upcycle_agent.py        # Qwen2.5-VL + gpt-oss-120b: identify + DIY pipeline
+│   ├── pricing_agent.py        # gpt-oss-120b: structured JSON price estimate
 │   └── image_agent.py          # Flux-1/Flux-2: image generation + editing
 ├── .env.example                # Environment variable template
 ├── .replit                     # Replit deployment config

@@ -24,7 +24,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from agents.upcycle_agent import run_pipeline
 from agents.pricing_agent import estimate_price
 from agents.image_agent import generate_product_image, edit_image_with_flux2
-import auth
+
+try:
+    import auth
+except ImportError:
+    from backend import auth
 
 app = FastAPI(title="ReCraft AI API", version="1.0.0")
 
@@ -111,6 +115,13 @@ class MarketplaceItem(BaseModel):
     image_url: Optional[str] = None
 
 
+class DIYGenerateRequest(BaseModel):
+    material: str
+    condition: str
+    dimensions: str = "Standard size"
+    original_image_b64: str | None = None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Routes
 # ─────────────────────────────────────────────────────────────────────────────
@@ -119,11 +130,54 @@ def health():
     return {"status": "ok", "service": "ReCraft AI API"}
 
 
+@app.post("/api/identify")
+async def identify(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Step 1: Identify material from image."""
+    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(status_code=400, detail="Only JPG/PNG/WEBP images accepted.")
+    
+    image_bytes = await file.read()
+    try:
+        from agents.upcycle_agent import identify_material
+        result = identify_material(image_bytes)
+        # Include original image b64 for the next step (Flux-2)
+        result["original_image_b64"] = base64.b64encode(image_bytes).decode()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Identification error: {str(e)}")
+
+
+@app.post("/api/generate_diy")
+async def generate_diy(req: DIYGenerateRequest) -> dict[str, Any]:
+    """Step 2: Generate DIY plan from confirmed material + dimensions."""
+    try:
+        from agents.upcycle_agent import generate_diy_plan
+        material_info = {"material": req.material, "condition": req.condition}
+        result = generate_diy_plan(material_info, req.dimensions)
+        
+        # Add material/condition back to result for consistent UI
+        result["material"] = req.material
+        result["condition"] = req.condition
+        result["dimensions"] = req.dimensions
+
+        # Generate Flux-1 image
+        flux_prompt = result.get("flux_image_prompt", f"Photorealistic {result.get('project_name', 'upcycled craft')}, studio lighting, product photography")
+        result["image_url"] = generate_product_image(flux_prompt)
+
+        # Generate Flux-2 contextual edit if original image provided
+        if req.original_image_b64:
+            edit_prompt = f"Transform this object into: {result.get('project_name')}. Keep the same lighting and environment. Photorealistic."
+            result["edited_image_url"] = edit_image_with_flux2(req.original_image_b64, edit_prompt)
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DIY Generation error: {str(e)}")
+
+
 @app.post("/api/upcycle")
 def upcycle(file: UploadFile = File(...)) -> dict[str, Any]:
     """
-    UC1: Accept image upload → run Gemini multimodal pipeline →
-    return material identification + DIY plan + Flux-1 image URL.
+    Legacy UC1 endpoint: runs the full pipeline in one go.
     """
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
         raise HTTPException(status_code=400, detail="Only JPG/PNG/WEBP images accepted.")

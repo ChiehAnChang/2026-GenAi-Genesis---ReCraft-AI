@@ -87,7 +87,13 @@ elif st.session_state.ui_stage == "CONFIRM":
         )
         
         st.markdown("### 📏 Dimensions")
-        dims = st.text_input("Length x Height x Width (e.g. 50x30x10 cm)", placeholder="e.g. 30cm tall, 10cm wide")
+        d_col1, d_col2, d_col3, d_col4 = st.columns([1, 1, 1, 1.2])
+        L = d_col1.text_input("Length", placeholder="0", key="dim_l")
+        W = d_col2.text_input("Width", placeholder="0", key="dim_w")
+        H = d_col3.text_input("Height", placeholder="0", key="dim_h")
+        unit = d_col4.selectbox("Unit", ["cm", "inch"], index=0, key="dim_unit")
+        
+        dims_str = f"{L}x{W}x{H} {unit}" if (L or W or H) else "Standard size"
         
         ccol1, ccol2 = st.columns(2)
         if ccol1.button("⬅️ Back", use_container_width=True):
@@ -95,15 +101,15 @@ elif st.session_state.ui_stage == "CONFIRM":
             st.rerun()
             
         if ccol2.button("✨ Generate 3 Plans", type="primary", use_container_width=True):
-            if not dims:
-                st.warning("Please enter approximate dimensions first!")
+            if not L and not W and not H:
+                st.warning("Please enter at least one dimension!")
             else:
                 st.session_state.confirmed_description = desc
                 with st.spinner("🧠 gpt-oss is dreaming of 3 amazing plans…"):
                     try:
                         resp = requests.post(
                             f"{API_BASE}/api/generate-plans",
-                            json={"description": desc, "dimensions": dims},
+                            json={"description": desc, "dimensions": dims_str},
                             timeout=120
                         )
                         resp.raise_for_status()
@@ -136,12 +142,38 @@ elif st.session_state.ui_stage == "RESULTS":
                 else:
                     st.warning("🎨 No preview image generated.")
                 
-                # Pricing info
+                # Pricing & Impact info
                 pr = plan.get("price_estimate")
+                co2 = plan.get("co2_saved_kg", 0)
+                
+                impact_col1, impact_col2 = st.columns(2)
+                with impact_col1:
+                    if pr:
+                        st.metric("💰 Value", f"${pr.get('recommended_price_usd', 0):.1f}")
+                with impact_col2:
+                    st.metric("🌱 CO2 Saved", f"{co2} kg")
+                
                 if pr:
-                    st.divider()
-                    st.metric("💰 Value Estimate", f"${pr.get('recommended_price_usd', 0):.2f}")
                     st.caption(f"Reasoning: {pr.get('justification')}")
+                
+                st.divider()
+                
+                # Save Button for this specific plan
+                token = st.session_state.get("auth_token")
+                if token:
+                    if st.button(f"💾 Save Plan {idx+1}", key=f"save_plan_{idx}", use_container_width=True):
+                        try:
+                            save_resp = requests.post(
+                                f"{API_BASE}/api/saves",
+                                json={"token": token, "item": plan},
+                                timeout=10
+                            )
+                            save_resp.raise_for_status()
+                            st.toast(f"✅ plan {idx+1} saved!")
+                        except Exception as e:
+                            st.error(f"Save failed: {e}")
+                else:
+                    st.caption("🔑 Log in to save this plan")
             
             with pcol2:
                 st.markdown(f"## {idx+1}. {plan['project_name']}")

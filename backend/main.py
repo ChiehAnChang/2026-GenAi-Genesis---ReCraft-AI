@@ -81,6 +81,7 @@ class ProjectPlan(BaseModel):
     materials_needed: List[str]
     steps: List[str]
     sustainability_impact: str
+    co2_saved_kg: float
     flux_image_prompt: str
     image_url: Optional[str] = None
     price_estimate: Optional[Dict[str, Any]] = None
@@ -195,6 +196,15 @@ def save_item(req: Dict[str, Any]):
 def get_saves(token: str):
     try:
         return auth.get_saves(token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+@app.delete("/api/saves/{saved_id}")
+def delete_save(saved_id: str, token: str):
+    try:
+        if auth.delete_save(token, saved_id):
+            return {"status": "success"}
+        raise HTTPException(status_code=404, detail="Item not found")
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
 

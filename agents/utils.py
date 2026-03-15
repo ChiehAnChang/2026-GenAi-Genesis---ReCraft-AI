@@ -7,8 +7,12 @@ def parse_json(text: str) -> any:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        # Fallback if the model included some preamble
+        # Fallback if the model included some preamble or trailing text
         match = re.search(r'(\{.*\}|\[.*\])', text, re.DOTALL)
         if match:
-            return json.loads(match.group(0))
+            json_str = match.group(0)
+            # Handle cases where the model might include "..." inside a list/dict
+            json_str = re.sub(r',\s*\.\.\.\s*\]', ']', json_str) # Trailing ... in list
+            json_str = re.sub(r',\s*\.\.\.\s*\}', '}', json_str) # Trailing ... in dict
+            return json.loads(json_str)
         raise

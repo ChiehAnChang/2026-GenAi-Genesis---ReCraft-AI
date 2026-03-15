@@ -8,7 +8,6 @@ import json
 import re
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 PRICING_SYSTEM_PROMPT = """You are an expert market analyst specializing in sustainable goods,
 upcycled crafts, and the circular economy. You analyze DIY upcycled products and provide
@@ -63,6 +62,7 @@ def estimate_price(upcycle_result: dict, labor_hours_override: float | None = No
         time_estimate=upcycle_result.get("time_estimate", "2 hours"),
     )
 
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[

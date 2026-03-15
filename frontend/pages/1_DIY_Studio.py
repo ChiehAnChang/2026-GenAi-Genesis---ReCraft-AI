@@ -160,18 +160,7 @@ if st.session_state.upcycle_result:
                 }.items():
                     st.markdown(f"- **{label}:** {val}")
 
-    # ── Auth status in sidebar ────────────────────────────────────────────────
-    with st.sidebar:
-        st.divider()
-        token = st.session_state.get("auth_token")
-        if token:
-            avatar = st.session_state.get("auth_avatar", "♻️")
-            uname = st.session_state.get("auth_username", "")
-            st.markdown(f"{avatar} **{uname}**")
-            st.caption("Logged in")
-        else:
-            st.info("🔑 Log in to save projects to your account.")
-            st.page_link("pages/0_Login.py", label="Log In / Sign Up", icon="🔑")
+
 
     # ── Save + Publish ─────────────────────────────────────────────────────────
     st.divider()

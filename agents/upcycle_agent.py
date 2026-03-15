@@ -7,11 +7,10 @@ import os
 import base64
 import json
 import re
-import google.generativeai as genai
+import google.genai as genai
+from google.genai import types
 from PIL import Image
 import io
-
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 IDENTIFY_PROMPT = """You are an expert material scientist and sustainability consultant.
@@ -56,23 +55,28 @@ def _parse_json(text: str) -> dict:
 
 def identify_material(image_bytes: bytes) -> dict:
     """Step 1: Send image to Gemini Vision to identify the waste material."""
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     image = Image.open(io.BytesIO(image_bytes))
     
-    response = model.generate_content([IDENTIFY_PROMPT, image])
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[IDENTIFY_PROMPT, image],
+    )
     return _parse_json(response.text)
 
 
 def generate_diy_plan(material_info: dict) -> dict:
     """Step 2: Generate a 5-step DIY upcycling plan from identified material."""
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     
     prompt = DIY_PROMPT.format(
         material=material_info["material"],
         condition=material_info.get("condition", "good condition"),
     )
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[prompt],
+    )
     return _parse_json(response.text)
 
 

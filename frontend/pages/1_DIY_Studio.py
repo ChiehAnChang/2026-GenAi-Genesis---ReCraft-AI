@@ -215,5 +215,45 @@ if st.session_state.upcycle_result:
             except Exception as e:
                 st.error(f"❌ Could not publish: {e}")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 3 — PAST IDEAS
+# ─────────────────────────────────────────────────────────────────────────────
+st.divider()
+token = st.session_state.get("auth_token")
+
+if token:
+    section("📦 Past Ideas")
+    st.markdown("Here are the DIY plans you've generated and saved.")
+    
+    # Use a button to avoid loading this on every render unless asked
+    if st.button("🔄 Fetch My Past Ideas", use_container_width=True):
+        with st.spinner("Fetching your saved ideas..."):
+            try:
+                saves_resp = requests.get(f"{API_BASE}/api/saves", params={"token": token}, timeout=10)
+                saves_resp.raise_for_status()
+                saves_data = saves_resp.json()
+                
+                if not saves_data:
+                    st.info("You haven't saved any DIY ideas yet. Start analyzing wastes above!")
+                else:
+                    for s in saves_data:
+                        with st.expander(f"🛠️ {s.get('project_name', 'Unnamed Project')} — {s.get('price', 'TBD')}"):
+                            col1, col2 = st.columns([1, 2])
+                            with col1:
+                                if s.get("image_url"):
+                                    st.image(s.get("image_url"), use_container_width=True)
+                                elif s.get("edited_image_url"):
+                                    st.image(s.get("edited_image_url"), use_container_width=True)
+                            with col2:
+                                st.markdown(f"**Material:** {s.get('material', 'Unknown')}")
+                                st.caption(s.get("tagline", ""))
+                                st.markdown("**Steps:**")
+                                for i, step in enumerate(s.get("steps", []), 1):
+                                    st.markdown(f"{i}. {step}")
+            except Exception as e:
+                st.error(f"❌ Could not fetch saved ideas: {e}")
+else:
+    st.info("Log in to see your past ideas.")
+
 footer()
 

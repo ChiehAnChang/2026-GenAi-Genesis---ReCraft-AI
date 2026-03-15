@@ -24,7 +24,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from agents.upcycle_agent import run_pipeline
 from agents.pricing_agent import estimate_price
 from agents.image_agent import generate_product_image, edit_image_with_flux2
-import auth
+
+try:
+    import auth
+except ImportError:
+    from backend import auth
 
 app = FastAPI(title="ReCraft AI API", version="1.0.0")
 

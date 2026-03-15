@@ -31,7 +31,7 @@ For each project, provide:
 5. Materials needed (list)
 6. 5 clear construction steps
 7. Sustainability impact
-8. Flux image prompt (photorealistic, showing the finished product)
+8. Flux image prompt (STRICTLY ISOLATED on a PURE SOLID WHITE BACKGROUND. High-end professional studio product photography of the finished product ONLY. No shadows, no floor, no environment, no other objects. Transparent-style isolation on #FFFFFF white.)
 
 Respond with ONLY valid JSON (a list of 3 objects):
 [

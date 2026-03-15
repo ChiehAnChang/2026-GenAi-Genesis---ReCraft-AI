@@ -64,16 +64,16 @@ with col_info:
     if email:
         st.caption(f"📧 {email}")
     
-    m1, m2, m3 = st.columns([1, 1, 0.2])
+    m1, m2 = st.columns(2)
     m1.metric("🛠️ Saved Projects", saved_count)
-    m2.metric("🌍 Impact", f"{total_co2:.1f} kg CO₂")
-    with m3:
-        st.markdown("<div style='height: 25px;'></div>", unsafe_allow_html=True) # Spacer
-        with st.popover("❗", use_container_width=False):
-            st.markdown("### 🌱 Impact Comparison")
-            st.markdown(f"#### Your saved **{total_co2:.1f} kg** of CO₂ is roughly equivalent to:")
-            st.markdown(f"## 🚗 {driving_equiv} km")
-            st.markdown("of driving a standard gasoline car. That's a huge win for the planet! 🌍✨")
+    m2.metric("🌍 Total CO₂ Impact", f"{total_co2:.1f} kg")
+    
+    st.info(f"""
+    ### 🌱 Your Environmental Impact
+    Your saved **{total_co2:.1f} kg** of CO₂ is roughly equivalent to:
+    ## 🚗 {driving_equiv} km
+    of driving a standard gasoline car. That's a huge win for the planet! 🌍✨
+    """)
 
 if st.button("🚪 Log Out", type="secondary"):
     st.session_state.auth_token = None

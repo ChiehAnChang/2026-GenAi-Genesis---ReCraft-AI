@@ -39,7 +39,7 @@ Respond with ONLY valid JSON (a list of 3 objects):
     "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ...", "Step 4: ...", "Step 5: ..."],
     "sustainability_impact": "...",
     "co2_saved_kg": 1.5,
-    "flux_image_prompt": "..."
+    "flux_image_prompt": "STRICTLY ISOLATED on a PURE SOLID WHITE BACKGROUND. High-end professional studio product photography of the finished product ONLY. No shadows, no floor, no environment, no other objects. Transparent-style isolation on #FFFFFF white."
   }},
   ...
 ]"""

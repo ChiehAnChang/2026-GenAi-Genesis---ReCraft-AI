@@ -23,7 +23,8 @@ Material Description(s): {description}
 Dimension(s): {dimensions}
 
 Generate exactly THREE diverse, SIMPLE, and HIGHLY FEASIBLE upcycling DIY projects.
-IMPORTANT: If multiple items/materials are listed above, you MUST generate plans that COMBINE all those materials into a single functional project (e.g., using a wooden board and a plastic bucket to create a combined storage unit).
+IMPORTANT: You should create projects that use AS MANY of the provided materials as possible. Prioritize projects that combine MOST of the items in a logical and useful way (e.g., using a wooden board and a plastic bucket together). 
+It is okay to skip a minor item if it significantly improves the feasibility or quality of the project, but the goal is to repurpose the bulk of the materials.
 Focus on repurposing the EXACT items shown. Do not suggest adding significant external materials.
 Ensure the construction steps are easy enough for a beginner and strictly incorporate the provided dimensions for all materials involved.
 Keep pricing EXTREMELY CONSERVATIVE.

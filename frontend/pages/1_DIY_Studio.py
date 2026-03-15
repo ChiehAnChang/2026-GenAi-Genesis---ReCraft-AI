@@ -1,7 +1,7 @@
 """
 Page 1 — DIY Studio (Refactored for Multi-Stage Workflow)
 1. Upload & Analysis (Multi-Image Support)
-2. Confirmation & Dimensions
+2. Confirmation & Dimensions (Consolidated for Master Plan)
 3. Top 3 Results with Pricing & Images
 """
 
@@ -13,7 +13,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))  # frontend/
 
 import requests
 import streamlit as st
-import base64
 from utils import load_css, section, step_card, price_badge, footer
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
@@ -27,7 +26,6 @@ if "ui_stage" not in st.session_state:
 # Multi-batch results storage
 for key, default in [
     ("batch_results", []),      # List of {material_name, description, image_bytes}
-    ("selected_index", 0),      # Index of the item currently being planned
     ("project_plans", []),
     ("confirmed_description", ""),
 ]:
@@ -36,7 +34,7 @@ for key, default in [
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown('<h1 class="hero-title">🛠️ DIY Studio</h1>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">Step-by-step upcycling: From analysis to 3 perfect plans</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Step-by-step upcycling: From analysis to your Master Plan</p>', unsafe_allow_html=True)
 st.divider()
 
 # ── STAGE 1: UPLOAD ───────────────────────────────────────────────────────────
@@ -80,132 +78,91 @@ if st.session_state.ui_stage == "UPLOAD":
 
 # ── STAGE 2: CONFIRM & DIMENSIONS ─────────────────────────────────────────────
 elif st.session_state.ui_stage == "CONFIRM":
-    section("📝 2. Confirm Description & Choose Item")
+    section("📝 2. Review Items & Create Master Plan")
     
     results = st.session_state.batch_results
-    
     if not results:
         st.warning("No items analyzed. Please go back.")
         if st.button("⬅️ Back"):
             st.session_state.ui_stage = "UPLOAD"
             st.rerun()
         st.stop()
-    
-    # Let user select which item they want to work on first
-    st.markdown("### 🔍 Analyzed Items")
-    st.write("Below are the items identified by AI. You can plan for an individual item or combine them all!")
-    
-    # ── Master Plan Area ──────────────────────────────────────────────────────
-    st.markdown("---")
-    master_col1, master_col2 = st.columns([2, 1])
-    with master_col1:
-        st.markdown("### ✨ The Master Plan (Combo)")
-        st.markdown(f"Combine all **{len(results)}** identified items into a single mega-project.")
-    with master_col2:
-        if st.button("🚀 Plan with ALL Items", type="primary", use_container_width=True):
-            # Aggregate all info
-            all_descriptions = []
-            all_dimensions = []
-            for i, res in enumerate(results):
-                # Retrieve dimensions from widgets using the keys we defined
-                l = st.session_state.get(f"dim_l_{i}", "0")
-                w = st.session_state.get(f"dim_w_{i}", "0")
-                h = st.session_state.get(f"dim_h_{i}", "0")
-                u = st.session_state.get(f"dim_unit_{i}", "cm")
-                
-                desc_text = st.session_state.get(f"desc_edit_{i}", res.get("description", ""))
-                all_descriptions.append(f"Item {i+1} ({res.get('material_name')}): {desc_text}")
-                all_dimensions.append(f"Item {i+1} Size: {l}x{w}x{h} {u}")
-            
-            combined_desc = " | ".join(all_descriptions)
-            combined_dims = " | ".join(all_dimensions)
-            
-            with st.spinner("🧠 Brainstorming a professional combo project using ALL materials…"):
-                try:
-                    resp = requests.post(
-                        f"{API_BASE}/api/generate-plans",
-                        json={"description": combined_desc, "dimensions": combined_dims},
-                        timeout=150
-                    )
-                    resp.raise_for_status()
-                    st.session_state.project_plans = resp.json()["plans"]
-                    st.session_state.ui_stage = "RESULTS"
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Combo generation failed: {e}")
-    st.markdown("---")
-    
-    # List of labels for individual selection
-    labels = [f"Item {i+1}: {item.get('material_name', 'Unknown')}" for i, item in enumerate(results)]
-    selected_idx = st.radio("Choose an item to plan:", range(len(labels)), format_func=lambda i: labels[i])
-    st.session_state.selected_index = selected_idx
-    
-    selected_item = results[selected_idx]
+
+    st.markdown("### ✨ The Master Plan Strategy")
+    st.markdown(f"AI will focus on combining use of your **{len(results)}** identified materials into single cohesive projects.")
     
     st.divider()
-    
-    col1, col2 = st.columns([1, 1], gap="large")
-    
-    with col1:
-        if selected_item.get("image_bytes"):
-            st.image(selected_item["image_bytes"], use_container_width=True, caption=labels[selected_idx])
-    
-    with col2:
-        st.info(f"🤖 AI identified: **{selected_item.get('material_name')}**")
-        
-        # Confirmation / Edit area
-        # Sync the manual edit to session state if it was already confirmed or use the default
-        current_desc = selected_item.get("description", "")
-        
-        desc = st.text_area(
-            "How would you describe this item?",
-            value=current_desc,
-            help="You can edit this if the AI missed anything.",
-            height=100,
-            key=f"desc_edit_{selected_idx}"
-        )
-        
-        st.markdown("### 📏 Dimensions")
-        d_col1, d_col2, d_col3, d_col4 = st.columns([1, 1, 1, 1.2])
-        L = d_col1.text_input("Length", placeholder="0", key=f"dim_l_{selected_idx}")
-        W = d_col2.text_input("Width", placeholder="0", key=f"dim_w_{selected_idx}")
-        H = d_col3.text_input("Height", placeholder="0", key=f"dim_h_{selected_idx}")
-        unit = d_col4.selectbox("Unit", ["cm", "inch"], index=0, key=f"dim_unit_{selected_idx}")
-        
-        dims_str = f"{L}x{W}x{H} {unit}" if (L or W or H) else "Standard size"
-        
-        ccol1, ccol2 = st.columns(2)
-        if ccol1.button("⬅️ Restart Batch", use_container_width=True):
-            st.session_state.ui_stage = "UPLOAD"
-            st.session_state.batch_results = []
-            st.rerun()
-            
-        if ccol2.button("✨ Generate 3 Plans", type="primary", use_container_width=True):
-            if not L and not W and not H:
-                st.warning("Please enter at least one dimension!")
-            else:
-                # Store the potentially edited description back to the batch item
-                st.session_state.batch_results[selected_idx]["description"] = desc
+
+    # Show items in a clean grid/list for editing
+    for i, item in enumerate(results):
+        with st.container(border=True):
+            icol1, icol2 = st.columns([1, 2])
+            with icol1:
+                if item.get("image_bytes"):
+                    st.image(item["image_bytes"], use_container_width=True)
+            with icol2:
+                st.markdown(f"#### Item {i+1}: {item.get('material_name', 'Material')}")
                 
-                with st.spinner(f"🧠 gpt-oss is dreaming of 3 amazing plans for the {selected_item.get('material_name')}…"):
-                    try:
-                        resp = requests.post(
-                            f"{API_BASE}/api/generate-plans",
-                            json={"description": desc, "dimensions": dims_str},
-                            timeout=120
-                        )
-                        resp.raise_for_status()
-                        st.session_state.project_plans = resp.json()["plans"]
-                        st.session_state.ui_stage = "RESULTS"
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Plan generation failed: {e}")
+                # Description
+                new_desc = st.text_area(
+                    "Refine material description:",
+                    value=item.get("description", ""),
+                    key=f"desc_edit_{i}",
+                    height=68
+                )
+                
+                # Dimensions
+                d_col1, d_col2, d_col3, d_col4 = st.columns([1, 1, 1, 1.2])
+                L = d_col1.text_input("Length", placeholder="0", key=f"dim_l_{i}")
+                W = d_col2.text_input("Width", placeholder="0", key=f"dim_w_{i}")
+                H = d_col3.text_input("Height", placeholder="0", key=f"dim_h_{i}")
+                unit = d_col4.selectbox("Unit", ["cm", "inch"], index=0, key=f"dim_unit_{i}")
+
+    st.divider()
+
+    # Single Primary Action
+    ccol1, ccol2 = st.columns([1, 2])
+    if ccol1.button("⬅️ Restart Batch", use_container_width=True):
+        st.session_state.ui_stage = "UPLOAD"
+        st.session_state.batch_results = []
+        st.rerun()
+        
+    if ccol2.button("🚀 Generate Master Plans with ALL Items", type="primary", use_container_width=True):
+        # Aggregate all info
+        all_descriptions = []
+        all_dimensions = []
+        for i, res in enumerate(results):
+            l = st.session_state.get(f"dim_l_{i}", "0")
+            w = st.session_state.get(f"dim_w_{i}", "0")
+            h = st.session_state.get(f"dim_h_{i}", "0")
+            u = st.session_state.get(f"dim_unit_{i}", "cm")
+            
+            desc_text = st.session_state.get(f"desc_edit_{i}", res.get("description", ""))
+            all_descriptions.append(f"Material {i+1} ({res.get('material_name')}): {desc_text}")
+            all_dimensions.append(f"Material {i+1} Size: {l}x{w}x{h} {u}")
+        
+        combined_desc = " | ".join(all_descriptions)
+        combined_dims = " | ".join(all_dimensions)
+        
+        with st.spinner("🧠 Dreaming of 3 master projects using your batch of materials…"):
+            try:
+                resp = requests.post(
+                    f"{API_BASE}/api/generate-plans",
+                    json={"description": combined_desc, "dimensions": combined_dims},
+                    timeout=150
+                )
+                resp.raise_for_status()
+                st.session_state.project_plans = resp.json()["plans"]
+                st.session_state.ui_stage = "RESULTS"
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Combination failed: {e}")
 
 # ── STAGE 3: RESULTS ──────────────────────────────────────────────────────────
 elif st.session_state.ui_stage == "RESULTS":
-    section("🌟 3 Upcycling Masterpieces")
+    section("🌟 3 Combined Masterpieces")
     
-    if st.button("⬅️ Back to Batch", use_container_width=False):
+    if st.button("⬅️ Back to Review", use_container_width=False):
         st.session_state.ui_stage = "CONFIRM"
         st.rerun()
 

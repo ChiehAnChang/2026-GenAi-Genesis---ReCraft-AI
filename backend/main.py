@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from agents.upcycle_agent import run_pipeline
 from agents.pricing_agent import estimate_price
 from agents.image_agent import generate_product_image, edit_image_with_flux2
+import auth
 
 app = FastAPI(title="ReCraft AI API", version="1.0.0")
 
@@ -183,6 +184,72 @@ def like_item(item_id: str) -> dict:
             item["likes"] = item.get("likes", 0) + 1
             return {"likes": item["likes"]}
     raise HTTPException(status_code=404, detail="Item not found.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Auth routes
+# ─────────────────────────────────────────────────────────────────────────────
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+    email: str = ""
+
+
+@app.post("/api/auth/register")
+def register(req: AuthRequest) -> dict:
+    try:
+        return auth.register(req.username, req.email, req.password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/auth/login")
+def login(req: AuthRequest) -> dict:
+    try:
+        return auth.login(req.username, req.password)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+@app.get("/api/auth/me")
+def me(token: str) -> dict:
+    user = auth.get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    return user
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Saves routes
+# ─────────────────────────────────────────────────────────────────────────────
+class SaveRequest(BaseModel):
+    token: str
+    item: dict
+
+
+@app.post("/api/saves")
+def save_item(req: SaveRequest) -> dict:
+    try:
+        return auth.save_diy(req.token, req.item)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+@app.get("/api/saves")
+def get_saves(token: str) -> list:
+    try:
+        return auth.get_saves(token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+@app.delete("/api/saves/{saved_id}")
+def delete_save(saved_id: str, token: str) -> dict:
+    try:
+        deleted = auth.delete_save(token, saved_id)
+        return {"deleted": deleted}
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

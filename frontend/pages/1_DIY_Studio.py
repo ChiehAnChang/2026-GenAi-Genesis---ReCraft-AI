@@ -14,7 +14,7 @@ from utils import load_css, section, step_card, price_badge, footer
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="DIY Studio — ReCraft AI", page_icon="🛠️", layout="wide")
+st.set_page_config(page_title="DIY Studio — ReCraft AI", page_icon="🛠️", layout="wide", initial_sidebar_state="expanded")
 load_css()
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -160,7 +160,20 @@ if st.session_state.upcycle_result:
                 }.items():
                     st.markdown(f"- **{label}:** {val}")
 
-    # ── Publish ───────────────────────────────────────────────────────────────
+    # ── Auth status in sidebar ────────────────────────────────────────────────
+    with st.sidebar:
+        st.divider()
+        token = st.session_state.get("auth_token")
+        if token:
+            avatar = st.session_state.get("auth_avatar", "♻️")
+            uname = st.session_state.get("auth_username", "")
+            st.markdown(f"{avatar} **{uname}**")
+            st.caption("Logged in")
+        else:
+            st.info("🔑 Log in to save projects to your account.")
+            st.page_link("pages/0_Login.py", label="Log In / Sign Up", icon="🔑")
+
+    # ── Save + Publish ─────────────────────────────────────────────────────────
     st.divider()
 
     pr = st.session_state.price_result
@@ -169,22 +182,49 @@ if st.session_state.upcycle_result:
         if pr else "Price TBD"
     )
 
-    if st.button("🌍 Publish to Community Marketplace", type="secondary", use_container_width=True):
-        try:
-            payload = {
-                "project_name": res.get("project_name", "Upcycled Item"),
-                "material": res.get("material", ""),
-                "tagline": res.get("tagline", ""),
-                "price": price_str,
-                "recommended_price_usd": pr["recommended_price_usd"] if pr else 0,
-                "steps": res.get("steps", []),
-                "image_url": res.get("image_url"),
-            }
-            resp = requests.post(f"{API_BASE}/api/marketplace", json=payload, timeout=10)
-            resp.raise_for_status()
-            st.success("🎉 Published to the Community Marketplace!")
-            st.balloons()
-        except Exception as e:
-            st.error(f"❌ Could not publish: {e}")
+    action_col1, action_col2 = st.columns(2)
+
+    # Save to account (only if logged in)
+    token = st.session_state.get("auth_token")
+    with action_col1:
+        if token:
+            if st.button("💾 Save to My Account", type="primary", use_container_width=True):
+                try:
+                    save_payload = {
+                        **res,
+                        "price": price_str,
+                        "recommended_price_usd": pr["recommended_price_usd"] if pr else 0,
+                    }
+                    save_resp = requests.post(
+                        f"{API_BASE}/api/saves",
+                        json={"token": token, "item": save_payload},
+                        timeout=10,
+                    )
+                    save_resp.raise_for_status()
+                    st.success("✅ Saved to your profile!")
+                except Exception as e:
+                    st.error(f"❌ Could not save: {e}")
+        else:
+            st.page_link("pages/0_Login.py", label="🔑 Log in to Save", icon="🔑")
+
+    with action_col2:
+        if st.button("🌍 Publish to Marketplace", type="secondary", use_container_width=True):
+            try:
+                payload = {
+                    "project_name": res.get("project_name", "Upcycled Item"),
+                    "material": res.get("material", ""),
+                    "tagline": res.get("tagline", ""),
+                    "price": price_str,
+                    "recommended_price_usd": pr["recommended_price_usd"] if pr else 0,
+                    "steps": res.get("steps", []),
+                    "image_url": res.get("image_url"),
+                }
+                resp = requests.post(f"{API_BASE}/api/marketplace", json=payload, timeout=10)
+                resp.raise_for_status()
+                st.success("🎉 Published to the Community Marketplace!")
+                st.balloons()
+            except Exception as e:
+                st.error(f"❌ Could not publish: {e}")
 
 footer()
+

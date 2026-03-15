@@ -25,12 +25,20 @@ from agents.upcycle_agent import generate_top_3_plans, generate_diy_plan, run_pi
 from agents.pricing_agent import estimate_price
 from agents.image_agent import generate_product_image, edit_image_with_flux2
 
+# ── Init DB first — must run before auth.py is imported (auth seeds test user on import) ──
 try:
-    import auth
     from database import get_conn, init_db, seed_marketplace_if_empty
 except ImportError:
-    from backend import auth
     from backend.database import get_conn, init_db, seed_marketplace_if_empty
+
+init_db()
+
+try:
+    import auth
+except ImportError:
+    from backend import auth
+
+seed_marketplace_if_empty()
 
 app = FastAPI(title="ReCraft AI API", version="2.0.0")
 
@@ -41,10 +49,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ── Init DB ───────────────────────────────────────────────────────────────────
-init_db()
-seed_marketplace_if_empty()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -15,27 +15,30 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "recraft.db")
 def get_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
 def init_db() -> None:
-    with get_conn() as conn:
-        conn.executescript("""
+    """Create all tables if they don't exist. Uses individual execute() calls
+    to avoid executescript()'s implicit COMMIT interfering with table creation."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 username      TEXT PRIMARY KEY,
                 email         TEXT NOT NULL DEFAULT '',
                 password_hash TEXT NOT NULL,
                 avatar_emoji  TEXT NOT NULL DEFAULT '🌱'
-            );
-
+            )""")
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS saves (
                 saved_id   TEXT PRIMARY KEY,
-                username   TEXT NOT NULL REFERENCES users(username),
+                username   TEXT NOT NULL,
                 item_json  TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
+            )""")
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS marketplace (
                 id                    TEXT PRIMARY KEY,
                 project_name          TEXT NOT NULL,
@@ -45,9 +48,29 @@ def init_db() -> None:
                 recommended_price_usd REAL,
                 steps_json            TEXT,
                 image_url             TEXT,
+                image_b64             TEXT,
                 likes                 INTEGER DEFAULT 0
-            );
-        """)
+            )""")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id           TEXT PRIMARY KEY,
+                username     TEXT NOT NULL,
+                avatar_emoji TEXT NOT NULL DEFAULT '🌱',
+                msg_type     TEXT NOT NULL DEFAULT 'text',
+                content      TEXT,
+                image_b64    TEXT,
+                link_url     TEXT,
+                reply_to_id  TEXT,
+                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )""")
+        # Migrations — add columns that may be missing in older DB files
+        try:
+            conn.execute("ALTER TABLE marketplace ADD COLUMN image_b64 TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def seed_marketplace_if_empty() -> None:
@@ -126,7 +149,6 @@ def seed_marketplace_if_empty() -> None:
     ]
 
     with get_conn() as conn:
-        # Replace old seed items on every startup so new seeds always show
         existing_ids = [r[0] for r in conn.execute("SELECT id FROM marketplace WHERE id LIKE 'seed-%'").fetchall()]
         for sid in existing_ids:
             conn.execute("DELETE FROM marketplace WHERE id = ?", (sid,))
@@ -134,11 +156,12 @@ def seed_marketplace_if_empty() -> None:
         for item in seed:
             conn.execute(
                 """INSERT INTO marketplace
-                   (id, project_name, material, tagline, price, recommended_price_usd, steps_json, image_url, likes)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (id, project_name, material, tagline, price, recommended_price_usd,
+                    steps_json, image_url, image_b64, likes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     item["id"], item["project_name"], item["material"],
                     item["tagline"], item["price"], item["recommended_price_usd"],
-                    json.dumps(item["steps"]), item["image_url"], item["likes"],
+                    json.dumps(item["steps"]), item["image_url"], None, item["likes"],
                 ),
             )

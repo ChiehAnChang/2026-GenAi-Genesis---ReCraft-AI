@@ -25,8 +25,9 @@ st.divider()
 token = st.session_state.get("auth_token")
 username = st.session_state.get("auth_username", "")
 
-if "reply_to" not in st.session_state:
-    st.session_state.reply_to = None  # {id, username, content}
+# Which message has its inline reply box open (msg id or None)
+if "reply_open_for" not in st.session_state:
+    st.session_state.reply_open_for = None
 
 
 def fetch_messages() -> list:
@@ -61,6 +62,7 @@ def render_message(msg: dict) -> None:
     avatar = msg.get("avatar_emoji", "♻️")
     name = msg["username"]
     ts = msg.get("created_at", "")[:16].replace("T", " ")
+    msg_id = msg["id"]
 
     with st.container():
         col_avatar, col_body = st.columns([1, 11])
@@ -79,6 +81,7 @@ def render_message(msg: dict) -> None:
                 unsafe_allow_html=True,
             )
 
+            # Reply preview
             if msg.get("reply_preview"):
                 rp = msg["reply_preview"]
                 preview_text = rp.get("content") or f"[{rp['msg_type']}]"
@@ -90,6 +93,7 @@ def render_message(msg: dict) -> None:
                     unsafe_allow_html=True,
                 )
 
+            # Content
             mtype = msg.get("msg_type", "text")
             if mtype == "text":
                 st.markdown(msg.get("content", ""))
@@ -102,8 +106,7 @@ def render_message(msg: dict) -> None:
                 )
             elif mtype == "image":
                 if msg.get("image_b64"):
-                    img_bytes = base64.b64decode(msg["image_b64"])
-                    st.image(img_bytes, use_container_width=True)
+                    st.image(base64.b64decode(msg["image_b64"]), use_container_width=True)
                 if msg.get("content"):
                     st.caption(msg["content"])
             elif mtype == "link":
@@ -116,14 +119,36 @@ def render_message(msg: dict) -> None:
                     unsafe_allow_html=True,
                 )
 
+            # Reply button (toggle inline box)
             if token:
-                if st.button("↩ Reply", key=f"reply_{msg['id']}", use_container_width=False):
-                    st.session_state.reply_to = {
-                        "id": msg["id"],
-                        "username": name,
-                        "content": (msg.get("content") or f"[{mtype}]")[:60],
-                    }
+                is_open = st.session_state.reply_open_for == msg_id
+                btn_label = "✕ Cancel" if is_open else "↩ Reply"
+                if st.button(btn_label, key=f"reply_btn_{msg_id}", use_container_width=False):
+                    st.session_state.reply_open_for = None if is_open else msg_id
                     st.rerun()
+
+            # ── Inline reply box ─────────────────────────────────────────────
+            if token and st.session_state.reply_open_for == msg_id:
+                with st.container():
+                    st.markdown(
+                        f"<div style='font-size:0.8rem;color:#6b7280;margin-bottom:0.2rem'>"
+                        f"↩ Replying to <b>{name}</b></div>",
+                        unsafe_allow_html=True,
+                    )
+                    reply_text = st.text_area(
+                        "Reply",
+                        placeholder="Type your reply…",
+                        height=70,
+                        label_visibility="collapsed",
+                        key=f"reply_input_{msg_id}",
+                    )
+                    if st.button("Send Reply 💬", type="primary",
+                                 key=f"reply_send_{msg_id}", use_container_width=False):
+                        if reply_text.strip():
+                            if send_message("text", content=reply_text.strip(), reply_to_id=msg_id):
+                                st.session_state.reply_open_for = None
+                                st.session_state.chat_messages = fetch_messages()
+                                st.rerun()
 
         st.markdown("<hr style='margin:0.3rem 0;opacity:0.15'>", unsafe_allow_html=True)
 
@@ -148,59 +173,42 @@ if not messages:
 for msg in messages:
     render_message(msg)
 
-# ── Input area ─────────────────────────────────────────────────────────────────
+# ── Input area (new messages only, no reply context needed) ────────────────────
 st.divider()
 
 if not token:
     st.warning("🔑 Log in to send messages.")
     st.page_link("pages/0_Login.py", label="Go to Login →", icon="🔑")
 else:
-    if st.session_state.reply_to:
-        rt = st.session_state.reply_to
-        rc1, rc2 = st.columns([10, 1])
-        with rc1:
-            st.markdown(
-                f"<div style='background:#f0fdf4;border-left:3px solid #22c55e;"
-                f"padding:0.3rem 0.6rem;border-radius:4px;font-size:0.85rem'>"
-                f"↩ Replying to <b>{rt['username']}</b>: {rt['content']}</div>",
-                unsafe_allow_html=True,
-            )
-        with rc2:
-            if st.button("✕", key="cancel_reply"):
-                st.session_state.reply_to = None
-                st.rerun()
-
     tab_text, tab_price, tab_image, tab_link = st.tabs(["💬 Text", "💰 Price Ask", "🖼️ Image", "🔗 Link"])
 
     with tab_text:
-        text_input = st.text_area("Message", placeholder="Share an idea, tip, or question…", height=80, label_visibility="collapsed")
+        text_input = st.text_area("Message", placeholder="Share an idea, tip, or question…",
+                                  height=80, label_visibility="collapsed")
         if st.button("Send 💬", type="primary", use_container_width=True, key="send_text"):
             if text_input.strip():
-                reply_id = st.session_state.reply_to["id"] if st.session_state.reply_to else None
-                if send_message("text", content=text_input.strip(), reply_to_id=reply_id):
-                    st.session_state.reply_to = None
+                if send_message("text", content=text_input.strip()):
                     st.session_state.chat_messages = fetch_messages()
                     st.rerun()
 
     with tab_price:
-        price_input = st.text_input("What item are you asking about?", placeholder="e.g. Denim tote bag made from old jeans, good condition", label_visibility="collapsed")
+        price_input = st.text_input("What item?",
+                                    placeholder="e.g. Denim tote bag made from old jeans, good condition",
+                                    label_visibility="collapsed")
         if st.button("Ask Price 💰", type="primary", use_container_width=True, key="send_price"):
             if price_input.strip():
-                reply_id = st.session_state.reply_to["id"] if st.session_state.reply_to else None
-                if send_message("price_ask", content=price_input.strip(), reply_to_id=reply_id):
-                    st.session_state.reply_to = None
+                if send_message("price_ask", content=price_input.strip()):
                     st.session_state.chat_messages = fetch_messages()
                     st.rerun()
 
     with tab_image:
-        uploaded = st.file_uploader("Upload image", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed")
+        uploaded = st.file_uploader("Upload image", type=["jpg", "jpeg", "png", "webp"],
+                                    label_visibility="collapsed")
         img_caption = st.text_input("Caption (optional)", key="img_caption")
         if st.button("Share Image 🖼️", type="primary", use_container_width=True, key="send_image"):
             if uploaded:
                 img_b64 = base64.b64encode(uploaded.read()).decode()
-                reply_id = st.session_state.reply_to["id"] if st.session_state.reply_to else None
-                if send_message("image", content=img_caption or None, image_b64=img_b64, reply_to_id=reply_id):
-                    st.session_state.reply_to = None
+                if send_message("image", content=img_caption or None, image_b64=img_b64):
                     st.session_state.chat_messages = fetch_messages()
                     st.rerun()
             else:
@@ -211,9 +219,7 @@ else:
         link_caption = st.text_input("Description (optional)", key="link_caption")
         if st.button("Share Link 🔗", type="primary", use_container_width=True, key="send_link"):
             if link_url.strip():
-                reply_id = st.session_state.reply_to["id"] if st.session_state.reply_to else None
-                if send_message("link", content=link_caption or None, link_url=link_url.strip(), reply_to_id=reply_id):
-                    st.session_state.reply_to = None
+                if send_message("link", content=link_caption or None, link_url=link_url.strip()):
                     st.session_state.chat_messages = fetch_messages()
                     st.rerun()
             else:

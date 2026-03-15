@@ -43,6 +43,7 @@ Respond with ONLY valid JSON (a list of 3 objects):
     "materials_needed": ["...", "..."],
     "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ...", "Step 4: ...", "Step 5: ..."],
     "sustainability_impact": "...",
+    "co2_saved_kg": 1.5,
     "flux_image_prompt": "..."
   }},
   ...

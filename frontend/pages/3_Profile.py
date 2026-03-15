@@ -3,6 +3,7 @@ Page 3 — My Profile
 Shows user info and all saved DIY items. Only accessible when logged in.
 """
 
+from __future__ import annotations
 import os
 import sys
 
@@ -14,7 +15,6 @@ from utils import load_css, section, step_card, price_badge, footer
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-
 load_css()
 
 # ── Auth guard ────────────────────────────────────────────────────────────────
@@ -24,22 +24,35 @@ if not token:
     st.page_link("pages/0_Login.py", label="Go to Login →", icon="🔑")
     st.stop()
 
-# ── Fetch user info ───────────────────────────────────────────────────────────
+# ── Fetch Initial Data ───────────────────────────────────────────────────────
 try:
+    # 1. Fetch user info
     me_resp = requests.get(f"{API_BASE}/api/auth/me", params={"token": token}, timeout=5)
     me_resp.raise_for_status()
     user = me_resp.json()
-except Exception:
-    st.error("❌ Session expired. Please log in again.")
+    
+    # 2. Fetch saved items (Needed for CO2 calculation in header)
+    saves_resp = requests.get(f"{API_BASE}/api/saves", params={"token": token}, timeout=5)
+    saves_resp.raise_for_status()
+    saves = saves_resp.json()
+    
+except Exception as e:
+    st.error(f"❌ Session error: {e}")
     st.session_state.auth_token = None
     st.stop()
 
-# ── Profile header ────────────────────────────────────────────────────────────
+# ── Data Processing ──────────────────────────────────────────────────────────
 avatar = user.get("avatar_emoji", "♻️")
 username = user.get("username", "")
 email = user.get("email", "")
-saved_count = user.get("saved_count", 0)
+saved_count = len(saves)
 
+# Calculate total CO2 impact
+total_co2 = sum([item.get("co2_saved_kg", 0) for item in saves])
+# 1kg CO2 is roughly the amount a standard car emits over 5km
+driving_equiv = round(total_co2 * 5, 1)
+
+# ── Profile Header ────────────────────────────────────────────────────────────
 col_avatar, col_info = st.columns([1, 5])
 with col_avatar:
     st.markdown(
@@ -50,10 +63,17 @@ with col_info:
     st.markdown(f"## {username}")
     if email:
         st.caption(f"📧 {email}")
-    m1, m2 = st.columns(2)
+    
+    m1, m2, m3 = st.columns([1, 1, 0.2])
     m1.metric("🛠️ Saved Projects", saved_count)
-    m2.metric("🌍 Impact", f"{saved_count * 120}g CO₂ saved*")
-    st.caption("*Estimated based on average upcycling impact vs landfill")
+    m2.metric("🌍 Impact", f"{total_co2:.1f} kg CO₂")
+    with m3:
+        st.markdown("<div style='height: 25px;'></div>", unsafe_allow_html=True) # Spacer
+        with st.popover("❗", use_container_width=False):
+            st.markdown("### 🌱 Impact Comparison")
+            st.markdown(f"#### Your saved **{total_co2:.1f} kg** of CO₂ is roughly equivalent to:")
+            st.markdown(f"## 🚗 {driving_equiv} km")
+            st.markdown("of driving a standard gasoline car. That's a huge win for the planet! 🌍✨")
 
 if st.button("🚪 Log Out", type="secondary"):
     st.session_state.auth_token = None
@@ -63,22 +83,14 @@ if st.button("🚪 Log Out", type="secondary"):
 
 st.divider()
 
-# ── Saved DIY items ───────────────────────────────────────────────────────────
+# ── Saved DIY Items ───────────────────────────────────────────────────────────
 section("🗂️ My Saved Projects")
-
-try:
-    saves_resp = requests.get(f"{API_BASE}/api/saves", params={"token": token}, timeout=5)
-    saves_resp.raise_for_status()
-    saves = saves_resp.json()
-except Exception as e:
-    st.error(f"❌ Could not load saved items: {e}")
-    saves = []
 
 if not saves:
     st.info("You haven't saved any DIY projects yet. Head to the 🛠️ DIY Studio and analyse your first waste item!")
 else:
     for item in saves:
-        with st.expander(f"🛠️ **{item.get('project_name', 'Upcycled Item')}** — _{item.get('material', '')}_", expanded=False):
+        with st.expander(f"🛠️ **{item.get('project_name', 'Upcycled Item')}** — _{item.get('material', 'waste')}_", expanded=False):
             exp_col1, exp_col2 = st.columns([1, 2])
 
             with exp_col1:
@@ -111,11 +123,15 @@ else:
 
                 if item.get("sustainability_impact"):
                     st.info(f"🌱 {item['sustainability_impact']}")
+                
+                st.caption(f"🌍 CO₂ Saved: {item.get('co2_saved_kg', 0)} kg")
 
             # Delete button
             saved_id = item.get("saved_id", "")
             if st.button(f"🗑️ Remove", key=f"del-{saved_id}"):
                 try:
+                    # Point to backend/auth.py handles deletion but backend/main.py needs the route
+                    # Check if route exists in main.py
                     requests.delete(
                         f"{API_BASE}/api/saves/{saved_id}",
                         params={"token": token},

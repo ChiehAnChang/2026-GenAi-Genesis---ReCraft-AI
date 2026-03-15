@@ -22,16 +22,11 @@ PLAN_GENERATOR_PROMPT = """You are a master upcycling designer.
 Material Description: {description}
 Dimensions: {dimensions}
 
-Generate exactly THREE diverse and high-quality upcycling DIY projects for this item.
-For each project, provide:
-1. Catchy project name
-2. One-line tagline
-3. Difficulty (Easy, Medium, or Hard)
-4. Time estimate
-5. Materials needed (list)
-6. 5 clear construction steps
-7. Sustainability impact
-8. Flux image prompt (photorealistic, showing the finished product)
+Generate exactly THREE diverse, SIMPLE, and HIGHLY FEASIBLE upcycling DIY projects that strictly use ONLY the materials described above. 
+Do not suggest adding significant external materials (like new wood or metal). Focus on repurposing the EXACT item shown.
+If the item is broken, the project must be about fixing or repurposing its specific parts/shape.
+Ensure the construction steps are easy enough for a beginner to do at home with basic tools.
+Strictly incorporate the provided dimensions into the construction steps to ensure the project is realistic.
 
 Respond with ONLY valid JSON (a list of 3 objects):
 [

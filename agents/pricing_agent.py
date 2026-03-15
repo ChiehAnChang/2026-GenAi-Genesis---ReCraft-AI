@@ -16,15 +16,15 @@ GPT_OSS_BASE_URL = os.getenv(
     "https://vjioo4r1vyvcozuj.us-east-2.aws.endpoints.huggingface.cloud/v1",
 )
 
-PRICING_SYSTEM_PROMPT = """You are an expert market analyst specializing in sustainable goods,
-upcycled crafts, and the circular economy. You analyze DIY upcycled products and provide
-realistic market pricing based on:
-- Material costs (cheap if from waste)
-- Labor time and skill level
-- Platform fees (Etsy, local markets)
-- Comparable market trends for handmade sustainable items
+PRICING_SYSTEM_PROMPT = """You are an expert market analyst specializing in sustainable goods and the circular economy. 
+Your pricing strategy is EXTREMELY CONSERVATIVE. 
 
-Always be conservative and realistic. Never hallucinate — if something is simple, price it low.
+Rules for Pricing:
+- For simple DIY items with minimal materials, suggest prices between $0 (Free/Community) and $10.
+- If a project takes less than 1 hour and uses only waste, the price should be near-zero or a "Community Gift" price.
+- Never overvalue basic handmade crafts. Be realistic: the goal is waste diversion, not profit.
+- Pricing should be grounded in the fact that these are repurposed waste items with low resale value.
+
 Respond with ONLY valid JSON, no markdown fences."""
 
 PRICING_PROMPT = """Analyze this upcycled product and provide a market price estimate:

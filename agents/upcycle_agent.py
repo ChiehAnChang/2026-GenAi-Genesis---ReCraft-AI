@@ -25,6 +25,7 @@ Dimension(s): {dimensions}
 Generate exactly THREE diverse, SIMPLE, and HIGHLY FEASIBLE upcycling DIY projects.
 IMPORTANT: You must treat the provided dimensions as FIXED PHYSICAL CONSTRAINTS. Do not suggest projects that are physically impossible or poorly scaled (e.g., if an item is only 5cm long, don't suggest it as a book shelf).
 Ensure the construction steps are easy enough for a beginner and strictly incorporate the provided dimensions into the manual steps.
+Be UNUSUALLY CONSERVATIVE with time estimates—err on the side of longer durations to ensure users are not discouraged by unexpected delays.
 Keep pricing EXTREMELY CONSERVATIVE.
 
 Respond with ONLY valid JSON (a list of 3 objects):

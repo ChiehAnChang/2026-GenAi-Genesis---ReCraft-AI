@@ -13,9 +13,24 @@ _tokens: dict[str, str] = {}       # token → username
 _saves: dict[str, list] = {}       # username → [saved_items]
 
 
+def _seed_test_user() -> None:
+    """Pre-create test/test account so demo works without registration."""
+    _users["test"] = {
+        "username": "test",
+        "email": "test@recraft.ai",
+        "password_hash": _hash("test"),
+        "avatar_emoji": "🌱",
+    }
+    _saves["test"] = []
+
+
 def _hash(password: str) -> str:
     salt = os.getenv("SECRET_SALT", "recraft-ai-hackathon-2026")
     return hashlib.sha256(f"{salt}:{password}".encode()).hexdigest()
+
+
+# Run seed immediately on import
+_seed_test_user()
 
 
 def register(username: str, email: str, password: str) -> dict:

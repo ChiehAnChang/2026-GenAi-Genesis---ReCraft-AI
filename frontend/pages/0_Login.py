@@ -14,12 +14,7 @@ from utils import load_css, footer
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-st.set_page_config(
-    page_title="Login — ReCraft AI",
-    page_icon="🔑",
-    layout="centered",
-    initial_sidebar_state="expanded",
-)
+
 load_css()
 
 # ── Already logged in? ────────────────────────────────────────────────────────

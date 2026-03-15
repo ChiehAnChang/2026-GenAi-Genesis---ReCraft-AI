@@ -14,7 +14,7 @@ from utils import load_css, section, step_card, price_badge, footer
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="DIY Studio — ReCraft AI", page_icon="🛠️", layout="wide", initial_sidebar_state="expanded")
+
 load_css()
 
 # ── Session state ─────────────────────────────────────────────────────────────

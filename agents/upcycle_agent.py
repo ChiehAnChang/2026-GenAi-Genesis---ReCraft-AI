@@ -23,10 +23,8 @@ Material Description(s): {description}
 Dimension(s): {dimensions}
 
 Generate exactly THREE diverse, SIMPLE, and HIGHLY FEASIBLE upcycling DIY projects.
-IMPORTANT: You should create projects that use AS MANY of the provided materials as possible. Prioritize projects that combine MOST of the items in a logical and useful way (e.g., using a wooden board and a plastic bucket together). 
-It is okay to skip a minor item if it significantly improves the feasibility or quality of the project, but the goal is to repurpose the bulk of the materials.
-Focus on repurposing the EXACT items shown. Do not suggest adding significant external materials.
-Ensure the construction steps are easy enough for a beginner and strictly incorporate the provided dimensions for all materials involved.
+IMPORTANT: You must treat the provided dimensions as FIXED PHYSICAL CONSTRAINTS. Do not suggest projects that are physically impossible or poorly scaled (e.g., if an item is only 5cm long, don't suggest it as a book shelf).
+Ensure the construction steps are easy enough for a beginner and strictly incorporate the provided dimensions into the manual steps.
 Keep pricing EXTREMELY CONSERVATIVE.
 
 Respond with ONLY valid JSON (a list of 3 objects):

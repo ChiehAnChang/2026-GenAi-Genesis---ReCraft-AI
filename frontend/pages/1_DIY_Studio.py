@@ -128,35 +128,44 @@ elif st.session_state.ui_stage == "CONFIRM":
         st.rerun()
         
     if ccol2.button("🚀 Generate Master Plans with ALL Items", type="primary", use_container_width=True):
-        # Aggregate all info
+        # Aggregate all info and VALIDATE dimensions
         all_descriptions = []
         all_dimensions = []
+        missing_dims = False
+        
         for i, res in enumerate(results):
-            l = st.session_state.get(f"dim_l_{i}", "0")
-            w = st.session_state.get(f"dim_w_{i}", "0")
-            h = st.session_state.get(f"dim_h_{i}", "0")
+            l = st.session_state.get(f"dim_l_{i}", "").strip()
+            w = st.session_state.get(f"dim_w_{i}", "").strip()
+            h = st.session_state.get(f"dim_h_{i}", "").strip()
             u = st.session_state.get(f"dim_unit_{i}", "cm")
             
+            if not l or not w or not h:
+                missing_dims = True
+                break
+                
             desc_text = st.session_state.get(f"desc_edit_{i}", res.get("description", ""))
             all_descriptions.append(f"Material {i+1} ({res.get('material_name')}): {desc_text}")
             all_dimensions.append(f"Material {i+1} Size: {l}x{w}x{h} {u}")
         
-        combined_desc = " | ".join(all_descriptions)
-        combined_dims = " | ".join(all_dimensions)
-        
-        with st.spinner("🧠 Dreaming of 3 master projects using your batch of materials…"):
-            try:
-                resp = requests.post(
-                    f"{API_BASE}/api/generate-plans",
-                    json={"description": combined_desc, "dimensions": combined_dims},
-                    timeout=150
-                )
-                resp.raise_for_status()
-                st.session_state.project_plans = resp.json()["plans"]
-                st.session_state.ui_stage = "RESULTS"
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ Combination failed: {e}")
+        if missing_dims:
+            st.warning("⚠️ Please fill in all dimensions (Length, Width, Height) for ALL items before generating!")
+        else:
+            combined_desc = " | ".join(all_descriptions)
+            combined_dims = " | ".join(all_dimensions)
+            
+            with st.spinner("🧠 Dreaming of 3 master projects using your batch of materials…"):
+                try:
+                    resp = requests.post(
+                        f"{API_BASE}/api/generate-plans",
+                        json={"description": combined_desc, "dimensions": combined_dims},
+                        timeout=150
+                    )
+                    resp.raise_for_status()
+                    st.session_state.project_plans = resp.json()["plans"]
+                    st.session_state.ui_stage = "RESULTS"
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Combination failed: {e}")
 
 # ── STAGE 3: RESULTS ──────────────────────────────────────────────────────────
 elif st.session_state.ui_stage == "RESULTS":
